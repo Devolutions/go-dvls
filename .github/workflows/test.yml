@@ -1,0 +1,51 @@
+name: testing
+
+on:
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    environment: test-application
+
+    steps:
+      - name: Check out ${{ github.repository }}
+        uses: actions/checkout@v3
+
+      - name: Get current version
+        id: get-version
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Does tag exists?
+        uses: devolutions/actions/tag-exists@master
+        with:
+          tag: v${{ steps.get-version.outputs.version }}
+          comment_on_pr_string: 🤖 You did not bump the version, a release won't be created ⚠️
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ secrets.GO_VERSION }}
+
+      - uses: actions/cache@v3
+        with:
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          path: ~/go/pkg/mod
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Test application
+        uses: devolutions/actions/go-test@master
+        env:
+          TEST_USER: ${{ secrets.TEST_USER }}
+          TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
+          TEST_INSTANCE: ${{ secrets.TEST_INSTANCE }}
+        with:
+          user: devolutionsbot
+          token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
