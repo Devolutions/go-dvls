@@ -60,22 +60,16 @@ func (c *Client) refreshToken() error {
 		return fmt.Errorf("failed to read response body. error: %w", err)
 	}
 
-	respUnmarshalled := struct {
-		Data struct {
-			Message string
-			Result  int
-			TokenId string
-		}
-	}{}
-	err = json.Unmarshal(body, &respUnmarshalled)
+	var loginResponse loginResponse
+	err = json.Unmarshal(body, &loginResponse)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
-	if respUnmarshalled.Data.Result != 1 {
-		return fmt.Errorf("failed to refresh token : %s", respUnmarshalled.Data.Message)
+	if loginResponse.Data.Result != ServerLoginSuccess {
+		return fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
 	}
 
-	c.credential.token = respUnmarshalled.Data.TokenId
+	c.credential.token = loginResponse.Data.TokenId
 
 	return nil
 }
