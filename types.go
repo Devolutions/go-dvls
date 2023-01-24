@@ -17,6 +17,14 @@ type credentials struct {
 	token    string
 }
 
+type loginResponse struct {
+	Data struct {
+		Message string
+		Result  ServerLoginResult
+		TokenId string
+	}
+}
+
 type loginReqBody struct {
 	Username        string          `json:"userName"`
 	LoginParameters loginParameters `json:"LoginParameters"`
@@ -37,34 +45,76 @@ type DvlsSecret struct {
 }
 
 func (s *DvlsSecret) UnmarshalJSON(d []byte) error {
-	var raw dvlsSecretRaw
-
+	raw := struct {
+		Data string
+	}{}
 	err := json.Unmarshal(d, &raw)
 	if err != nil {
 		return err
 	}
-	s.ID = raw.Data.ID
-	s.Username = raw.Data.Data.Username
-	if len(raw.Data.MetaInformationData.MetaInformation.PasswordHistory) > 0 {
-		s.Password = raw.Data.MetaInformationData.MetaInformation.PasswordHistory[0].Password
+
+	if raw.Data != "" {
+		newRaw := struct {
+			Data struct {
+				Credentials struct {
+					Username string
+					Password string
+				}
+			}
+		}{}
+		err = json.Unmarshal([]byte(raw.Data), &newRaw)
+		if err != nil {
+			return err
+		}
+
+		s.Username = newRaw.Data.Credentials.Username
+		s.Password = newRaw.Data.Credentials.Password
 	}
 
 	return nil
 }
 
-type dvlsSecretRaw struct {
-	Data struct {
-		ID                  string `json:"id,omitempty"`
-		MetaInformationData struct {
-			MetaInformation struct {
-				PasswordHistory []struct {
-					Password string `json:"password,omitempty"`
-				} `json:"passwordHistory,omitempty"`
-			} `json:"metaInformation,omitempty"`
-		} `json:"metaInformationData,omitempty"`
-		Data struct {
-			Username string `json:"username,omitempty"`
-		} `json:"data,omitempty"`
-	} `json:"data,omitempty"`
-	Result int
-}
+//go:generate stringer -type=ServerLoginResult -trimprefix ServerLogin
+type ServerLoginResult int
+
+const (
+	ServerLoginError ServerLoginResult = iota
+	ServerLoginSuccess
+	ServerLoginInvalidUserNamePassword
+	ServerLoginInvalidDataSource
+	ServerLoginDisabledDataSource
+	ServerLoginInvalidSubscription
+	ServerLoginTooManyUserForTheLicense
+	ServerLoginExpiredSubscription
+	ServerLoginInGracePeriod
+	ServerLoginDisabledUser
+	ServerLoginUserNotFound
+	ServerLoginLockedUser
+	ServerLoginNotApprovedUser
+	ServerLoginBlackListed
+	ServerLoginInvalidIP
+	ServerLoginUnableToCreateUser
+	ServerLoginTwoFactorTypeNotConfigured
+	ServerLoginTwoFactorTypeActivatedNotAllowedClientSide
+	ServerLoginDomainNotTrusted
+	ServerLoginUserDoesNotBelongToDefaultDomain
+	ServerLoginInvalidGeoIP
+	ServerLoginTwoFactorIsRequired
+	ServerLoginTwoFactorPreconfigured
+	ServerLoginTwoFactorSecondStepIsRequired
+	ServerLoginTwoFactorUserIsDenied
+	ServerLoginTwoFactorSmsSended
+	ServerLoginTwoFactorTimeout
+	ServerLoginTwoFactorUserLockedOut
+	ServerLoginTwoFactorUserFraud
+	ServerLoginTwoFactorUserEmailNotConfigured
+	ServerLoginTwoFactorUserSmsNotConfigured
+	ServerLoginNotInTrustedGroup
+	ServerLoginServerNotResponding
+	ServerLoginNotAccessToApplication
+	ServerLoginDirectoryNotResponding
+	ServerLoginWindowsAuthenticationFailure
+	ServerLoginForcePasswordChange
+	ServerLoginTwoFactorInvalid
+	ServerLoginOutsideValidUsageTimePeriod
+)

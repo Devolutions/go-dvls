@@ -46,14 +46,13 @@ func test_isLogged(t *testing.T) {
 		t.Fatalf("expected token to be valid but isLogged returned %t", islogged)
 	}
 
-	validToken := testClient.credential.token
-	testClient.credential.token = "placeholder"
-	islogged, err = testClient.isLogged()
+	invalidClient := testClient
+	invalidClient.credential.token = "placeholder"
+	islogged, err = invalidClient.isLogged()
 	if err != nil {
 		t.Fatal(err)
 	}
 	if islogged {
 		t.Fatalf("expected token to be invalid but isLogged returned %t", islogged)
 	}
-	testClient.credential.token = validToken
 }
