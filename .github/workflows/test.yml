@@ -40,6 +40,24 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-
 
+      - name: Download CA certificate
+        uses: devolutions/actions/create-file-from-secret@master
+        with:
+          content: ${{ secrets.DEVOLUTIONS_HQ_ISSUING_CA_PEM }}
+          path: ${{ runner.temp }}/certificate.pem
+
+      - name: Update CA store
+        run: |
+          sudo cp ${{ runner.temp }}/certificate.pem /usr/local/share/ca-certificates/certificate.crt
+          sudo update-ca-certificates
+
+      - name: Connect to Tailscale
+        uses: devolutions/actions/tailscale@master
+        with:
+          authKey: ${{ secrets.TAILSCALE_AUTH_KEY_EPHEMERAL }}
+          exitNode: 100.99.49.20
+          acceptDns: true
+
       - name: Test application
         uses: devolutions/actions/go-test@master
         env:
