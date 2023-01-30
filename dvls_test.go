@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-const testEntry string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
+const testEntryId string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
 
 var testClient Client
 
@@ -19,21 +19,39 @@ func Test_NewClient(t *testing.T) {
 
 	t.Run("isLogged", test_isLogged)
 	t.Run("GetSecret", test_GetSecret)
+	t.Run("GetEntry", test_GetEntry)
 }
 
 func test_GetSecret(t *testing.T) {
 	testSecret := DvlsSecret{
-		ID:       testEntry,
+		ID:       testEntryId,
 		Username: "TestK8s",
 		Password: "TestK8sPassword",
 	}
-	secret, err := testClient.GetSecret(testEntry)
+	secret, err := testClient.GetSecret(testEntryId)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	if secret != testSecret {
 		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret)
+	}
+}
+
+func test_GetEntry(t *testing.T) {
+	testEntry := DvlsEntry{
+		ID:                testEntryId,
+		Name:              "TestK8sSecret",
+		ConnectionType:    ServerConnectionCredential,
+		ConnectionSubType: ServerConnectionSubTypeDefault,
+	}
+	entry, err := testClient.GetEntry(testEntryId)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if entry != testEntry {
+		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testEntry, entry)
 	}
 }
 
