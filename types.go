@@ -38,6 +38,36 @@ type loginParameters struct {
 	LocalUserName    string `json:"LocalUserName,omitempty"`
 }
 
+type DvlsEntry struct {
+	ID                string
+	Name              string
+	ConnectionType    ServerConnectionType
+	ConnectionSubType ServerConnectionSubType
+}
+
+func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
+	raw := struct {
+		Data struct {
+			ID                string
+			Name              string
+			ConnectionType    ServerConnectionType
+			ConnectionSubType ServerConnectionSubType
+		}
+		Result int
+	}{}
+	err := json.Unmarshal(d, &raw)
+	if err != nil {
+		return err
+	}
+
+	e.ID = raw.Data.ID
+	e.Name = raw.Data.Name
+	e.ConnectionType = raw.Data.ConnectionType
+	e.ConnectionSubType = raw.Data.ConnectionSubType
+
+	return nil
+}
+
 type DvlsSecret struct {
 	ID       string
 	Username string
@@ -117,4 +147,143 @@ const (
 	ServerLoginForcePasswordChange
 	ServerLoginTwoFactorInvalid
 	ServerLoginOutsideValidUsageTimePeriod
+)
+
+//go:generate stringer -type=ServerConnectionType -trimprefix ServerConnection
+type ServerConnectionType int
+
+const (
+	ServerConnectionUndefined ServerConnectionType = iota
+	ServerConnectionRDPConfigured
+	ServerConnectionRDPFilename
+	ServerConnectionCommandLine
+	ServerConnectionVNC
+	ServerConnectionWebBrowser
+	ServerConnectionLogMeIn
+	ServerConnectionTeamViewer
+	ServerConnectionPutty
+	ServerConnectionFtp
+	ServerConnectionVirtualPC
+	ServerConnectionRadmin
+	ServerConnectionDameware
+	ServerConnectionVMWare
+	ServerConnectionPCAnywhere
+	ServerConnectionICA
+	ServerConnectionXWindow
+	ServerConnectionHyperV
+	ServerConnectionAddOn
+	ServerConnectionRemoteAssistance
+	ServerConnectionVPN
+	ServerConnectionVirtualBox
+	ServerConnectionVMRC
+	ServerConnectionXenServer
+	ServerConnectionWindowsVirtualPC
+	ServerConnectionGroup
+	ServerConnectionCredential
+	ServerConnectionHpRgs
+	ServerConnectionDesktone
+	ServerConnectionApplicationTool
+	ServerConnectionSessionTool
+	ServerConnectionContact
+	ServerConnectionDataEntry
+	ServerConnectionDataReport
+	ServerConnectionAgent
+	ServerConnectionComputer
+	ServerConnectionDropBox
+	ServerConnectionS3
+	ServerConnectionAzureStorage
+	ServerConnectionCitrixWeb
+	ServerConnectionPowerShell
+	ServerConnectionHostSessionTool
+	ServerConnectionShortcut
+	ServerConnectionIntelAMT
+	ServerConnectionAzure
+	ServerConnectionDocument
+	ServerConnectionVMWareConsole
+	ServerConnectionInventoryReport
+	ServerConnectionSkyDrive
+	ServerConnectionScreenConnect
+	ServerConnectionAzureTableStorage
+	ServerConnectionAzureQueueStorage
+	ServerConnectionTemplateGroup
+	ServerConnectionHost
+	ServerConnectionDatabase
+	ServerConnectionCustomer
+	ServerConnectionADConsole
+	ServerConnectionAws
+	ServerConnectionSNMPReport
+	ServerConnectionSync
+	ServerConnectionGateway
+	ServerConnectionPlayList
+	ServerConnectionTerminalConsole
+	ServerConnectionPSExec
+	ServerConnectionAppleRemoteDesktop
+	ServerConnectionSpiceworks
+	ServerConnectionDeskRoll
+	ServerConnectionSecureCRT
+	ServerConnectionIterm
+	ServerConnectionSheet
+	ServerConnectionSplunk
+	ServerConnectionPortForward
+	ServerConnectionTeamViewerConsole
+	ServerConnectionScreenHero
+	ServerConnectionTelnet
+	ServerConnectionSerial
+	ServerConnectionSSHTunnel
+	ServerConnectionSSHShell
+	ServerConnectionResetPassword
+	ServerConnectionWayk
+	ServerConnectionControlUp
+	ServerConnectionDataSource
+	ServerConnectionChromeRemoteDesktop
+	ServerConnectionRDCommander
+	ServerConnectionIDrac
+	ServerConnectionIlo
+	ServerConnectionWebDav
+	ServerConnectionBeyondTrustPasswordSafeConsole
+	ServerConnectionDevolutionsProxy
+	ServerConnectionFtpNative
+	ServerConnectionPowerShellRemoteConsole
+	ServerConnectionProxyTunnel
+	ServerConnectionRoot
+	ServerConnectionBeyondTrustPasswordSafe
+	ServerConnectionFileExplorer
+	ServerConnectionScp
+	ServerConnectionSftp
+	ServerConnectionAzureBlobStorage
+	ServerConnectionTFtp
+	ServerConnectionGoToAssist
+	ServerConnectionIPTable
+	ServerConnectionHub
+	ServerConnectionGoogleDrive
+	ServerConnectionGoogleCloud
+	ServerConnectionNoVNC
+	ServerConnectionSplashtop
+	ServerConnectionJumpDesktop
+	ServerConnectionBoxNet
+	ServerConnectionMSPAnywhere
+	ServerConnectionRepository
+	ServerConnectionCyberArkPSM
+	ServerConnectionCloudBerryRemoteAssistant
+	ServerConnectionITGlue
+	ServerConnectionSmartFolder
+	ServerConnectionCyberArkJump
+	ServerConnectionWindowsAdminCenter
+	ServerConnectionDevolutionsGateway
+	ServerConnectionWaykDenConsole
+	ServerConnectionRDGatewayConsole
+	ServerConnectionCyberArkDashboard
+	ServerConnectionDVLSPamDashboard
+	ServerConnectionSMB
+	ServerConnectionAppleRemoteManagement
+	ServerConnectionRustDesk
+	ServerConnectionPAM
+	ServerConnectionITManager
+	ServerConnectionCustomImage
+)
+
+type ServerConnectionSubType string
+
+const (
+	ServerConnectionSubTypeDefault ServerConnectionSubType = "Default"
 )
