@@ -14,7 +14,7 @@ const (
 	isLoggedEndpoint string = "/api/is-logged"
 )
 
-func NewClient(username string, password string, baseUri string) (Client, error) {
+func NewClient(username string, password string, baseUri string) (Client, DvlsUser, error) {
 	credential := credentials{username: username, password: password}
 	client := Client{
 		client:     &http.Client{},
@@ -22,12 +22,12 @@ func NewClient(username string, password string, baseUri string) (Client, error)
 		credential: credential,
 	}
 
-	err := client.refreshToken()
+	user, err := client.login()
 	if err != nil {
-		return Client{}, fmt.Errorf("login failed \"%w\"", err)
+		return Client{}, DvlsUser{}, fmt.Errorf("login failed \"%w\"", err)
 	}
 
-	return client, nil
+	return client, user, nil
 }
 
 func (c *Client) refreshToken() error {
@@ -104,4 +104,48 @@ func (c *Client) isLogged() (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (c *Client) login() (DvlsUser, error) {
+	loginBody := loginReqBody{
+		Username: c.credential.username,
+		LoginParameters: loginParameters{
+			Password: c.credential.password,
+			Client:   "Cli",
+		},
+	}
+	loginJson, err := json.Marshal(loginBody)
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("failed to marshall login body. error: %w", err)
+	}
+
+	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("failed to build login url. error: %w", err)
+	}
+
+	resp, err := c.client.Post(reqUrl, "application/json", bytes.NewBuffer(loginJson))
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("error while submitting login request. error: %w", err)
+	} else if resp.StatusCode != http.StatusOK {
+		return DvlsUser{}, fmt.Errorf("error while submitting login request. Unexpected status code %d", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("failed to read response body. error: %w", err)
+	}
+
+	var user DvlsUser
+	err = json.Unmarshal(body, &user)
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+	}
+	if user.result != ServerLoginSuccess {
+		return DvlsUser{}, fmt.Errorf("failed to login (%s) : %s", user.result, user.message)
+	}
+
+	c.credential.token = user.tokenId
+
+	return user, nil
 }

@@ -10,9 +10,12 @@ const testEntryId string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
 var testClient Client
 
 func Test_NewClient(t *testing.T) {
-	c, err := NewClient(os.Getenv("TEST_USER"), os.Getenv("TEST_PASSWORD"), os.Getenv("TEST_INSTANCE"))
+	c, user, err := NewClient(os.Getenv("TEST_USER"), os.Getenv("TEST_PASSWORD"), os.Getenv("TEST_INSTANCE"))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if user.UserType != UserAuthenticationApplication {
+		t.Fatalf("user credentials is not an Application. User type %s", user.UserType)
 	}
 
 	testClient = c
