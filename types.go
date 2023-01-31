@@ -104,6 +104,62 @@ func (s *DvlsSecret) UnmarshalJSON(d []byte) error {
 	return nil
 }
 
+type DvlsUser struct {
+	ID       string
+	Username string
+	UserType UserAuthenticationType
+	result   ServerLoginResult
+	message  string
+	tokenId  string
+}
+
+func (u *DvlsUser) UnmarshalJSON(d []byte) error {
+	raw := struct {
+		Data struct {
+			TokenId    string
+			UserEntity struct {
+				Id           string
+				Display      string
+				UserSecurity struct {
+					AuthenticationType UserAuthenticationType
+				}
+			}
+		}
+		Result  ServerLoginResult
+		Message string
+	}{}
+	err := json.Unmarshal(d, &raw)
+	if err != nil {
+		return err
+	}
+
+	u.ID = raw.Data.UserEntity.Id
+	u.Username = raw.Data.UserEntity.Display
+	u.UserType = raw.Data.UserEntity.UserSecurity.AuthenticationType
+	u.result = raw.Result
+	u.tokenId = raw.Data.TokenId
+	u.message = raw.Message
+
+	return nil
+}
+
+//go:generate stringer -type=UserAuthenticationType -trimprefix UserAuthentication
+type UserAuthenticationType int
+
+const (
+	UserAuthenticationBuiltin UserAuthenticationType = iota
+	UserAuthenticationLocalWindows
+	UserAuthenticationSqlServer
+	UserAuthenticationDomain
+	UserAuthenticationOffice365
+	UserAuthenticationNone
+	UserAuthenticationCloud
+	UserAuthenticationLegacy
+	UserAuthenticationAzureAD
+	UserAuthenticationApplication
+	UserAuthenticationOkta
+)
+
 //go:generate stringer -type=ServerLoginResult -trimprefix ServerLogin
 type ServerLoginResult int
 
