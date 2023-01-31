@@ -142,7 +142,7 @@ const _ServerConnectionType_name = "UndefinedRDPConfiguredRDPFilenameCommandLine
 var _ServerConnectionType_index = [...]uint16{0, 9, 22, 33, 44, 47, 57, 64, 74, 79, 82, 91, 97, 105, 111, 121, 124, 131, 137, 142, 158, 161, 171, 175, 184, 200, 205, 215, 220, 228, 243, 254, 261, 270, 280, 285, 293, 300, 302, 314, 323, 333, 348, 356, 364, 369, 377, 390, 405, 413, 426, 443, 460, 473, 477, 485, 493, 502, 505, 515, 519, 526, 534, 549, 555, 573, 583, 591, 600, 605, 610, 616, 627, 644, 654, 660, 666, 675, 683, 696, 700, 709, 719, 738, 749, 754, 757, 763, 793, 809, 818, 841, 852, 856, 879, 891, 894, 898, 914, 918, 928, 935, 938, 949, 960, 965, 974, 985, 991, 1002, 1012, 1023, 1048, 1054, 1065, 1077, 1095, 1113, 1127, 1143, 1160, 1176, 1179, 1200, 1208, 1211, 1220, 1231}
 
 func (i ServerConnectionType) String() string {
-	if i < 0 || i >= ServerConnectionType(len(_ServerConnectionType_index)-1) {
+	if i >= ServerConnectionType(len(_ServerConnectionType_index)-1) {
 		return "ServerConnectionType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ServerConnectionType_name[_ServerConnectionType_index[i]:_ServerConnectionType_index[i+1]]

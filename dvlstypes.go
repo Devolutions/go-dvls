@@ -1,150 +1,7 @@
 package dvls
 
-import (
-	"encoding/json"
-	"net/http"
-)
-
-type Client struct {
-	client     *http.Client
-	baseUri    string
-	credential credentials
-}
-
-type credentials struct {
-	username string
-	password string
-	token    string
-}
-
-type loginResponse struct {
-	Data struct {
-		Message string
-		Result  ServerLoginResult
-		TokenId string
-	}
-}
-
-type loginReqBody struct {
-	Username        string          `json:"userName"`
-	LoginParameters loginParameters `json:"LoginParameters"`
-}
-
-type loginParameters struct {
-	Password         string `json:"Password"`
-	Client           string `json:"Client"`
-	Version          string `json:"Version,omitempty"`
-	LocalMachineName string `json:"LocalMachineName,omitempty"`
-	LocalUserName    string `json:"LocalUserName,omitempty"`
-}
-
-type DvlsEntry struct {
-	ID                string
-	Name              string
-	ConnectionType    ServerConnectionType
-	ConnectionSubType ServerConnectionSubType
-}
-
-func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Data struct {
-			ID                string
-			Name              string
-			ConnectionType    ServerConnectionType
-			ConnectionSubType ServerConnectionSubType
-		}
-		Result int
-	}{}
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
-	}
-
-	e.ID = raw.Data.ID
-	e.Name = raw.Data.Name
-	e.ConnectionType = raw.Data.ConnectionType
-	e.ConnectionSubType = raw.Data.ConnectionSubType
-
-	return nil
-}
-
-type DvlsSecret struct {
-	ID       string
-	Username string
-	Password string
-}
-
-func (s *DvlsSecret) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Data string
-	}{}
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
-	}
-
-	if raw.Data != "" {
-		newRaw := struct {
-			Data struct {
-				Credentials struct {
-					Username string
-					Password string
-				}
-			}
-		}{}
-		err = json.Unmarshal([]byte(raw.Data), &newRaw)
-		if err != nil {
-			return err
-		}
-
-		s.Username = newRaw.Data.Credentials.Username
-		s.Password = newRaw.Data.Credentials.Password
-	}
-
-	return nil
-}
-
-type DvlsUser struct {
-	ID       string
-	Username string
-	UserType UserAuthenticationType
-	result   ServerLoginResult
-	message  string
-	tokenId  string
-}
-
-func (u *DvlsUser) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Data struct {
-			TokenId    string
-			UserEntity struct {
-				Id           string
-				Display      string
-				UserSecurity struct {
-					AuthenticationType UserAuthenticationType
-				}
-			}
-		}
-		Result  ServerLoginResult
-		Message string
-	}{}
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
-	}
-
-	u.ID = raw.Data.UserEntity.Id
-	u.Username = raw.Data.UserEntity.Display
-	u.UserType = raw.Data.UserEntity.UserSecurity.AuthenticationType
-	u.result = raw.Result
-	u.tokenId = raw.Data.TokenId
-	u.message = raw.Message
-
-	return nil
-}
-
 //go:generate stringer -type=UserAuthenticationType -trimprefix UserAuthentication
-type UserAuthenticationType int
+type UserAuthenticationType uint8
 
 const (
 	UserAuthenticationBuiltin UserAuthenticationType = iota
@@ -161,7 +18,7 @@ const (
 )
 
 //go:generate stringer -type=ServerLoginResult -trimprefix ServerLogin
-type ServerLoginResult int
+type ServerLoginResult uint8
 
 const (
 	ServerLoginError ServerLoginResult = iota
@@ -206,7 +63,7 @@ const (
 )
 
 //go:generate stringer -type=ServerConnectionType -trimprefix ServerConnection
-type ServerConnectionType int
+type ServerConnectionType uint8
 
 const (
 	ServerConnectionUndefined ServerConnectionType = iota
