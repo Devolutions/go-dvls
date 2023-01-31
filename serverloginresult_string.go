@@ -54,7 +54,7 @@ const _ServerLoginResult_name = "ErrorSuccessInvalidUserNamePasswordInvalidDataS
 var _ServerLoginResult_index = [...]uint16{0, 5, 12, 35, 52, 70, 89, 113, 132, 145, 157, 169, 179, 194, 205, 214, 232, 258, 300, 316, 348, 360, 379, 401, 430, 451, 469, 485, 507, 525, 556, 585, 602, 621, 643, 665, 693, 712, 728, 755}
 
 func (i ServerLoginResult) String() string {
-	if i < 0 || i >= ServerLoginResult(len(_ServerLoginResult_index)-1) {
+	if i >= ServerLoginResult(len(_ServerLoginResult_index)-1) {
 		return "ServerLoginResult(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _ServerLoginResult_name[_ServerLoginResult_index[i]:_ServerLoginResult_index[i+1]]

@@ -26,7 +26,7 @@ const _UserAuthenticationType_name = "BuiltinLocalWindowsSqlServerDomainOffice36
 var _UserAuthenticationType_index = [...]uint8{0, 7, 19, 28, 34, 43, 47, 52, 58, 65, 76, 80}
 
 func (i UserAuthenticationType) String() string {
-	if i < 0 || i >= UserAuthenticationType(len(_UserAuthenticationType_index)-1) {
+	if i >= UserAuthenticationType(len(_UserAuthenticationType_index)-1) {
 		return "UserAuthenticationType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
 	return _UserAuthenticationType_name[_UserAuthenticationType_index[i]:_UserAuthenticationType_index[i+1]]

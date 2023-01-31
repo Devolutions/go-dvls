@@ -4,10 +4,76 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
+
+type Client struct {
+	client     *http.Client
+	baseUri    string
+	credential credentials
+}
+
+type credentials struct {
+	username string
+	password string
+	token    string
+}
+
+type loginResponse struct {
+	Data struct {
+		Message string
+		Result  ServerLoginResult
+		TokenId string
+	}
+}
+
+type loginReqBody struct {
+	Username        string          `json:"userName"`
+	LoginParameters loginParameters `json:"LoginParameters"`
+}
+
+type loginParameters struct {
+	Password         string `json:"Password"`
+	Client           string `json:"Client"`
+	Version          string `json:"Version,omitempty"`
+	LocalMachineName string `json:"LocalMachineName,omitempty"`
+	LocalUserName    string `json:"LocalUserName,omitempty"`
+}
+
+type DvlsUser struct {
+	ID       string
+	Username string
+	UserType UserAuthenticationType
+}
+
+func (u *DvlsUser) UnmarshalJSON(d []byte) error {
+	raw := struct {
+		Data struct {
+			TokenId    string
+			UserEntity struct {
+				Id           string
+				Display      string
+				UserSecurity struct {
+					AuthenticationType UserAuthenticationType
+				}
+			}
+		}
+		Result  ServerLoginResult
+		Message string
+	}{}
+	err := json.Unmarshal(d, &raw)
+	if err != nil {
+		return err
+	}
+
+	u.ID = raw.Data.UserEntity.Id
+	u.Username = raw.Data.UserEntity.Display
+	u.UserType = raw.Data.UserEntity.UserSecurity.AuthenticationType
+
+	return nil
+}
 
 const (
 	loginEndpoint    string = "/api/login/partial"
@@ -30,82 +96,6 @@ func NewClient(username string, password string, baseUri string) (Client, DvlsUs
 	return client, user, nil
 }
 
-func (c *Client) refreshToken() error {
-	loginBody := loginReqBody{
-		Username: c.credential.username,
-		LoginParameters: loginParameters{
-			Password: c.credential.password,
-			Client:   "Cli",
-		},
-	}
-	loginJson, err := json.Marshal(loginBody)
-	if err != nil {
-		return fmt.Errorf("failed to marshall login body. error: %w", err)
-	}
-
-	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
-	if err != nil {
-		return fmt.Errorf("failed to build login url. error: %w", err)
-	}
-
-	resp, err := c.client.Post(reqUrl, "application/json", bytes.NewBuffer(loginJson))
-	if err != nil {
-		return fmt.Errorf("error while submitting login request. error: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("error while submitting login request. Unexpected status code %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("failed to read response body. error: %w", err)
-	}
-
-	var loginResponse loginResponse
-	err = json.Unmarshal(body, &loginResponse)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshall response body. error: %w", err)
-	}
-	if loginResponse.Data.Result != ServerLoginSuccess {
-		return fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
-	}
-
-	c.credential.token = loginResponse.Data.TokenId
-
-	return nil
-}
-
-func (c *Client) isLogged() (bool, error) {
-	reqUrl, err := url.JoinPath(c.baseUri, isLoggedEndpoint)
-	if err != nil {
-		return false, fmt.Errorf("failed to isLogged url. error: %w", err)
-	}
-
-	req, err := http.NewRequest(http.MethodGet, reqUrl, nil)
-	if err != nil {
-		return false, fmt.Errorf("failed to make request. error: %w", err)
-	}
-
-	req.Header.Add("tokenId", c.credential.token)
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return false, fmt.Errorf("error while submitting isLogged request. error: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("unexpected status code %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return false, fmt.Errorf("failed to read response body. error: %w", err)
-	}
-
-	if string(body) == "false" {
-		return false, nil
-	}
-
-	return true, nil
-}
-
 func (c *Client) login() (DvlsUser, error) {
 	loginBody := loginReqBody{
 		Username: c.credential.username,
@@ -124,28 +114,82 @@ func (c *Client) login() (DvlsUser, error) {
 		return DvlsUser{}, fmt.Errorf("failed to build login url. error: %w", err)
 	}
 
-	resp, err := c.client.Post(reqUrl, "application/json", bytes.NewBuffer(loginJson))
+	resp, err := c.rawRequest(reqUrl, http.MethodPost, bytes.NewBuffer(loginJson))
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("error while submitting login request. error: %w", err)
-	} else if resp.StatusCode != http.StatusOK {
-		return DvlsUser{}, fmt.Errorf("error while submitting login request. Unexpected status code %d", resp.StatusCode)
+		return DvlsUser{}, fmt.Errorf("error while submitting refreshtoken request. error: %w", err)
 	}
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return DvlsUser{}, fmt.Errorf("failed to read response body. error: %w", err)
-	}
-
-	var user DvlsUser
-	err = json.Unmarshal(body, &user)
+	var loginResponse loginResponse
+	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
 		return DvlsUser{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
-	if user.result != ServerLoginSuccess {
-		return DvlsUser{}, fmt.Errorf("failed to login (%s) : %s", user.result, user.message)
+	if loginResponse.Data.Result != ServerLoginSuccess {
+		return DvlsUser{}, fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
 	}
 
-	c.credential.token = user.tokenId
+	var user DvlsUser
+	err = json.Unmarshal(resp.Response, &user)
+	if err != nil {
+		return DvlsUser{}, fmt.Errorf("failed to unmarshall user body. error: %w", err)
+	}
+
+	c.credential.token = loginResponse.Data.TokenId
 
 	return user, nil
+}
+
+func (c *Client) refreshToken() error {
+	loginBody := loginReqBody{
+		Username: c.credential.username,
+		LoginParameters: loginParameters{
+			Password: c.credential.password,
+			Client:   "Cli",
+		},
+	}
+	loginJson, err := json.Marshal(loginBody)
+	if err != nil {
+		return fmt.Errorf("failed to marshall login body. error: %w", err)
+	}
+
+	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
+	if err != nil {
+		return fmt.Errorf("failed to build login url. error: %w", err)
+	}
+
+	resp, err := c.rawRequest(reqUrl, http.MethodPost, bytes.NewBuffer(loginJson))
+	if err != nil {
+		return fmt.Errorf("error while submitting refreshtoken request. error: %w", err)
+	}
+
+	var loginResponse loginResponse
+	err = json.Unmarshal(resp.Response, &loginResponse)
+	if err != nil {
+		return fmt.Errorf("failed to unmarshall response body. error: %w", err)
+	}
+	if loginResponse.Data.Result != ServerLoginSuccess {
+		return fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
+	}
+
+	c.credential.token = loginResponse.Data.TokenId
+
+	return nil
+}
+
+func (c *Client) isLogged() (bool, error) {
+	reqUrl, err := url.JoinPath(c.baseUri, isLoggedEndpoint)
+	if err != nil {
+		return false, fmt.Errorf("failed to build isLogged url. error: %w", err)
+	}
+
+	resp, err := c.rawRequest(reqUrl, http.MethodGet, nil)
+	if err != nil && !strings.Contains(err.Error(), "json: cannot unmarshal bool into Go value") {
+		return false, fmt.Errorf("error while submitting isLogged request. error: %w", err)
+	}
+
+	if string(resp.Response) == "false" {
+		return false, nil
+	}
+
+	return true, nil
 }
