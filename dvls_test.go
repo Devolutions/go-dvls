@@ -44,7 +44,8 @@ func test_GetSecret(t *testing.T) {
 func test_GetEntry(t *testing.T) {
 	testEntry := DvlsEntry{
 		ID:                testEntryId,
-		Name:              "TestK8sSecret",
+		EntryName:         "TestK8sSecret",
+		Username:          "TestK8s",
 		ConnectionType:    ServerConnectionCredential,
 		ConnectionSubType: ServerConnectionSubTypeDefault,
 	}
@@ -52,6 +53,8 @@ func test_GetEntry(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	testEntry.ModifiedDate = entry.ModifiedDate
 
 	if entry != testEntry {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testEntry, entry)
