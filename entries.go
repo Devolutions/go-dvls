@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"time"
 )
 
 type DvlsEntry struct {
 	ID                string
-	Name              string
+	EntryName         string
+	Username          string
+	ModifiedDate      time.Time
 	ConnectionType    ServerConnectionType
 	ConnectionSubType ServerConnectionSubType
 }
@@ -19,6 +22,8 @@ func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
 		Data struct {
 			ID                string
 			Name              string
+			Username          string
+			ModifiedDate      string
 			ConnectionType    ServerConnectionType
 			ConnectionSubType ServerConnectionSubType
 		}
@@ -29,10 +34,17 @@ func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
 		return err
 	}
 
+	date, err := time.Parse("2006-01-02T15:04:05", raw.Data.ModifiedDate)
+	if err != nil {
+		return err
+	}
+
 	e.ID = raw.Data.ID
-	e.Name = raw.Data.Name
+	e.EntryName = raw.Data.Name
 	e.ConnectionType = raw.Data.ConnectionType
 	e.ConnectionSubType = raw.Data.ConnectionSubType
+	e.ModifiedDate = date
+	e.Username = raw.Data.Username
 
 	return nil
 }
