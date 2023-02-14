@@ -2,10 +2,27 @@ package dvls
 
 import (
 	"os"
+	"reflect"
 	"testing"
 )
 
 const testEntryId string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
+const testVaultId string = "e0f4f35d-8cb5-40d9-8b2b-35c96ea1c9b5"
+
+var testPassword string = "TestK8sPassword"
+var testEntry DvlsEntry = DvlsEntry{
+	ID:                testEntryId,
+	VaultId:           testVaultId,
+	Description:       "Test description",
+	EntryName:         "TestK8sSecret",
+	ConnectionType:    ServerConnectionCredential,
+	ConnectionSubType: ServerConnectionSubTypeDefault,
+	Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
+	Credentials: DvlsEntryCredentials{
+		Username: "TestK8s",
+		Password: &testPassword,
+	},
+}
 
 var testClient Client
 
@@ -21,44 +38,61 @@ func Test_NewClient(t *testing.T) {
 	testClient = c
 
 	t.Run("isLogged", test_isLogged)
-	t.Run("GetSecret", test_GetSecret)
+	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("GetEntry", test_GetEntry)
+	t.Run("NewEntry", test_NewEntry)
 	t.Run("GetServerInfo", test_GetServerInfo)
 }
 
-func test_GetSecret(t *testing.T) {
-	testSecret := DvlsSecret{
-		ID:       testEntryId,
+func test_GetEntryCredentialsPassword(t *testing.T) {
+	testSecret := DvlsEntryCredentials{
 		Username: "TestK8s",
-		Password: "TestK8sPassword",
+		Password: &testPassword,
 	}
-	secret, err := testClient.GetSecret(testEntryId)
+	secret, err := testClient.GetEntryCredentialsPassword(testEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	if secret != testSecret {
-		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret)
+	if !reflect.DeepEqual(testSecret, secret.Credentials) {
+		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret.Credentials)
 	}
 }
 
 func test_GetEntry(t *testing.T) {
-	testEntry := DvlsEntry{
-		ID:                testEntryId,
-		EntryName:         "TestK8sSecret",
-		Username:          "TestK8s",
-		ConnectionType:    ServerConnectionCredential,
-		ConnectionSubType: ServerConnectionSubTypeDefault,
+	testGetEntry := testEntry
+
+	testGetEntry.Credentials = DvlsEntryCredentials{
+		Username: testEntry.Credentials.Username,
 	}
-	entry, err := testClient.GetEntry(testEntryId)
+	entry, err := testClient.GetEntry(testGetEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testEntry.ModifiedDate = entry.ModifiedDate
+	testGetEntry.ModifiedDate = entry.ModifiedDate
 
-	if entry != testEntry {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testEntry, entry)
+	if !reflect.DeepEqual(entry, testGetEntry) {
+		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testGetEntry, entry)
+	}
+}
+
+func test_NewEntry(t *testing.T) {
+	testNewEntry := testEntry
+
+	testNewEntry.EntryName = "TestK8sNewEntry"
+
+	entry, err := testClient.NewEntry(testNewEntry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	testNewEntry.ID = entry.ID
+	testNewEntry.ModifiedDate = entry.ModifiedDate
+	testNewEntry.Tags = entry.Tags
+
+	if !reflect.DeepEqual(entry, testNewEntry) {
+		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testNewEntry, entry)
 	}
 }
 
