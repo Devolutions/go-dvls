@@ -27,6 +27,7 @@ type DvlsEntry struct {
 
 func (e DvlsEntry) MarshalJSON() ([]byte, error) {
 	raw := struct {
+		Id           string `json:"id,omitempty"`
 		RepositoryId string `json:"repositoryId"`
 		Name         string `json:"name"`
 		Description  string `json:"description"`
@@ -58,6 +59,7 @@ func (e DvlsEntry) MarshalJSON() ([]byte, error) {
 		}
 	}
 
+	raw.Id = e.ID
 	raw.Keywords = strings.Join(e.Tags, " ")
 	raw.Description = e.Description
 	raw.RepositoryId = e.VaultId
@@ -290,6 +292,38 @@ func (c *Client) NewEntry(entry DvlsEntry) (DvlsEntry, error) {
 	return entry, nil
 }
 
+func (c *Client) UpdateEntry(entry DvlsEntry) (DvlsEntry, error) {
+	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
+		return DvlsEntry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+	}
+
+	entry.ModifiedDate = nil
+
+	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, "save")
+	if err != nil {
+		return DvlsEntry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+	}
+
+	entryJson, err := json.Marshal(entry)
+	if err != nil {
+		return DvlsEntry{}, fmt.Errorf("failed to marshall body. error: %w", err)
+	}
+
+	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
+	if err != nil {
+		return DvlsEntry{}, fmt.Errorf("error while creating entry. error: %w", err)
+	} else if resp.Result != 1 {
+		return DvlsEntry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	}
+
+	err = json.Unmarshal(resp.Response, &entry)
+	if err != nil {
+		return DvlsEntry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+	}
+
+	return entry, nil
+}
+
 func (c *Client) DeleteEntry(entryId string) error {
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entryId)
 	if err != nil {
@@ -304,4 +338,12 @@ func (c *Client) DeleteEntry(entryId string) error {
 	}
 
 	return nil
+}
+
+func NewEntryCredentials(username string, password string) DvlsEntryCredentials {
+	creds := DvlsEntryCredentials{
+		Username: username,
+		Password: &password,
+	}
+	return creds
 }
