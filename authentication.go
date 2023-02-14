@@ -13,6 +13,8 @@ type Client struct {
 	client     *http.Client
 	baseUri    string
 	credential credentials
+
+	ClientUser DvlsUser
 }
 
 type credentials struct {
@@ -80,7 +82,7 @@ const (
 	isLoggedEndpoint string = "/api/is-logged"
 )
 
-func NewClient(username string, password string, baseUri string) (Client, DvlsUser, error) {
+func NewClient(username string, password string, baseUri string) (Client, error) {
 	credential := credentials{username: username, password: password}
 	client := Client{
 		client:     &http.Client{},
@@ -90,10 +92,12 @@ func NewClient(username string, password string, baseUri string) (Client, DvlsUs
 
 	user, err := client.login()
 	if err != nil {
-		return Client{}, DvlsUser{}, fmt.Errorf("login failed \"%w\"", err)
+		return Client{}, fmt.Errorf("login failed \"%w\"", err)
 	}
 
-	return client, user, nil
+	client.ClientUser = user
+
+	return client, nil
 }
 
 func (c *Client) login() (DvlsUser, error) {
