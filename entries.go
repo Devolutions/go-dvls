@@ -289,3 +289,19 @@ func (c *Client) NewEntry(entry DvlsEntry) (DvlsEntry, error) {
 
 	return entry, nil
 }
+
+func (c *Client) DeleteEntry(entryId string) error {
+	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entryId)
+	if err != nil {
+		return fmt.Errorf("failed to delete entry url. error: %w", err)
+	}
+
+	resp, err := c.Request(reqUrl, http.MethodDelete, nil)
+	if err != nil {
+		return fmt.Errorf("error while deleting entry. error: %w", err)
+	} else if resp.Result != 1 {
+		return fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	}
+
+	return nil
+}
