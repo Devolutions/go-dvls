@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-type DvlsEntry struct {
+type Entry struct {
 	ID                string                  `json:"id,omitempty"`
 	VaultId           string                  `json:"repositoryId"`
 	EntryName         string                  `json:"name"`
@@ -22,10 +22,10 @@ type DvlsEntry struct {
 	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
 	Tags              []string                `json:"keywords,omitempty"`
 
-	Credentials DvlsEntryCredentials `json:"data,omitempty"`
+	Credentials EntryCredentials `json:"data,omitempty"`
 }
 
-func (e DvlsEntry) MarshalJSON() ([]byte, error) {
+func (e Entry) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		Id           string `json:"id,omitempty"`
 		RepositoryId string `json:"repositoryId"`
@@ -82,7 +82,7 @@ func (e DvlsEntry) MarshalJSON() ([]byte, error) {
 	return entryJson, nil
 }
 
-func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
+func (e *Entry) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data struct {
 			ID                string
@@ -142,12 +142,12 @@ func (e *DvlsEntry) UnmarshalJSON(d []byte) error {
 	return nil
 }
 
-type DvlsEntryCredentials struct {
+type EntryCredentials struct {
 	Username string
 	Password *string
 }
 
-func (s DvlsEntryCredentials) MarshalJSON() ([]byte, error) {
+func (s EntryCredentials) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		AllowClipboard         bool    `json:"allowClipboard"`
 		CredentialConnectionId string  `json:"credentialConnectionId"`
@@ -179,7 +179,7 @@ func (s DvlsEntryCredentials) MarshalJSON() ([]byte, error) {
 	return secretJson, nil
 }
 
-func (s *DvlsEntryCredentials) UnmarshalJSON(d []byte) error {
+func (s *EntryCredentials) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data string
 	}{}
@@ -213,23 +213,23 @@ const (
 	entryEndpoint string = "/api/connections/partial"
 )
 
-func (c *Client) GetEntryCredentialsPassword(entry DvlsEntry) (DvlsEntry, error) {
-	var secret DvlsEntryCredentials
+func (c *Client) GetEntryCredentialsPassword(entry Entry) (Entry, error) {
+	var secret EntryCredentials
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
 	resp, err := c.Request(reqUrl, http.MethodPost, nil)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
+		return Entry{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
 	} else if resp.Result != 1 {
-		return DvlsEntry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
+		return Entry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
 	}
 
 	err = json.Unmarshal(resp.Response, &secret)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
 
 	entry.Credentials = secret
@@ -237,31 +237,31 @@ func (c *Client) GetEntryCredentialsPassword(entry DvlsEntry) (DvlsEntry, error)
 	return entry, nil
 }
 
-func (c *Client) GetEntry(entryId string) (DvlsEntry, error) {
-	var entry DvlsEntry
+func (c *Client) GetEntry(entryId string) (Entry, error) {
+	var entry Entry
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entryId)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
 	resp, err := c.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("error while fetching entry. error: %w", err)
+		return Entry{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	} else if resp.Result != 1 {
-		return DvlsEntry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
+		return Entry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
 
 	return entry, nil
 }
 
-func (c *Client) NewEntry(entry DvlsEntry) (DvlsEntry, error) {
+func (c *Client) NewEntry(entry Entry) (Entry, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
-		return DvlsEntry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+		return Entry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
 	}
 
 	entry.ID = ""
@@ -269,56 +269,56 @@ func (c *Client) NewEntry(entry DvlsEntry) (DvlsEntry, error) {
 
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, "save")
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
 	entryJson, err := json.Marshal(entry)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to marshall body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to marshall body. error: %w", err)
 	}
 
 	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("error while creating entry. error: %w", err)
+		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
 	} else if resp.Result != 1 {
-		return DvlsEntry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+		return Entry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
 
 	return entry, nil
 }
 
-func (c *Client) UpdateEntry(entry DvlsEntry) (DvlsEntry, error) {
+func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
-		return DvlsEntry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+		return Entry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
 	}
 
 	entry.ModifiedDate = nil
 
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, "save")
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
 	entryJson, err := json.Marshal(entry)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to marshall body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to marshall body. error: %w", err)
 	}
 
 	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("error while creating entry. error: %w", err)
+		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
 	} else if resp.Result != 1 {
-		return DvlsEntry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+		return Entry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return DvlsEntry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
 
 	return entry, nil
@@ -340,8 +340,8 @@ func (c *Client) DeleteEntry(entryId string) error {
 	return nil
 }
 
-func NewEntryCredentials(username string, password string) DvlsEntryCredentials {
-	creds := DvlsEntryCredentials{
+func NewEntryCredentials(username string, password string) EntryCredentials {
+	creds := EntryCredentials{
 		Username: username,
 		Password: &password,
 	}
