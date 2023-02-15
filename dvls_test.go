@@ -9,8 +9,8 @@ import (
 const testEntryId string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
 const testVaultId string = "e0f4f35d-8cb5-40d9-8b2b-35c96ea1c9b5"
 
-var testNewEntry DvlsEntry
-var testEntry DvlsEntry = DvlsEntry{
+var testNewEntry Entry
+var testEntry Entry = Entry{
 	ID:                testEntryId,
 	VaultId:           testVaultId,
 	Description:       "Test description",
@@ -58,7 +58,7 @@ func test_GetEntryCredentialsPassword(t *testing.T) {
 func test_GetEntry(t *testing.T) {
 	testGetEntry := testEntry
 
-	testGetEntry.Credentials = DvlsEntryCredentials{
+	testGetEntry.Credentials = EntryCredentials{
 		Username: testEntry.Credentials.Username,
 	}
 	entry, err := testClient.GetEntry(testGetEntry.ID)

@@ -14,7 +14,7 @@ type Client struct {
 	baseUri    string
 	credential credentials
 
-	ClientUser DvlsUser
+	ClientUser User
 }
 
 type credentials struct {
@@ -44,13 +44,13 @@ type loginParameters struct {
 	LocalUserName    string `json:"LocalUserName,omitempty"`
 }
 
-type DvlsUser struct {
+type User struct {
 	ID       string
 	Username string
 	UserType UserAuthenticationType
 }
 
-func (u *DvlsUser) UnmarshalJSON(d []byte) error {
+func (u *User) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data struct {
 			TokenId    string
@@ -100,7 +100,7 @@ func NewClient(username string, password string, baseUri string) (Client, error)
 	return client, nil
 }
 
-func (c *Client) login() (DvlsUser, error) {
+func (c *Client) login() (User, error) {
 	loginBody := loginReqBody{
 		Username: c.credential.username,
 		LoginParameters: loginParameters{
@@ -110,32 +110,32 @@ func (c *Client) login() (DvlsUser, error) {
 	}
 	loginJson, err := json.Marshal(loginBody)
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("failed to marshall login body. error: %w", err)
+		return User{}, fmt.Errorf("failed to marshall login body. error: %w", err)
 	}
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("failed to build login url. error: %w", err)
+		return User{}, fmt.Errorf("failed to build login url. error: %w", err)
 	}
 
 	resp, err := c.rawRequest(reqUrl, http.MethodPost, bytes.NewBuffer(loginJson))
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("error while submitting refreshtoken request. error: %w", err)
+		return User{}, fmt.Errorf("error while submitting refreshtoken request. error: %w", err)
 	}
 
 	var loginResponse loginResponse
 	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return User{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
 	}
 	if loginResponse.Data.Result != ServerLoginSuccess {
-		return DvlsUser{}, fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
+		return User{}, fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
 	}
 
-	var user DvlsUser
+	var user User
 	err = json.Unmarshal(resp.Response, &user)
 	if err != nil {
-		return DvlsUser{}, fmt.Errorf("failed to unmarshall user body. error: %w", err)
+		return User{}, fmt.Errorf("failed to unmarshall user body. error: %w", err)
 	}
 
 	c.credential.token = loginResponse.Data.TokenId
