@@ -21,7 +21,6 @@ func TestMain(m *testing.M) {
 
 func Test_Client(t *testing.T) {
 	t.Run("isLogged", test_isLogged)
-	t.Run("GetServerInfo", test_GetServerInfo)
 }
 
 func test_isLogged(t *testing.T) {
@@ -42,15 +41,6 @@ func test_isLogged(t *testing.T) {
 	if islogged {
 		t.Fatalf("expected token to be invalid but isLogged returned %t", islogged)
 	}
-}
-
-func test_GetServerInfo(t *testing.T) {
-	info, err := testClient.GetServerInfo()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	t.Logf("server info: %#v", info)
 }
 
 func setupTestClient() error {

@@ -7,17 +7,19 @@ import (
 
 const testEntryId string = "76a4fcf6-fec1-4297-bc1e-a327841055ad"
 
-var testNewEntry Entry
-var testEntry Entry = Entry{
-	ID:                testEntryId,
-	VaultId:           testVaultId,
-	Description:       "Test description",
-	EntryName:         "TestK8sSecret",
-	ConnectionType:    ServerConnectionCredential,
-	ConnectionSubType: ServerConnectionSubTypeDefault,
-	Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
-	Credentials:       NewEntryCredentials("TestK8s", "TestK8sPassword"),
-}
+var (
+	testNewEntry Entry
+	testEntry    Entry = Entry{
+		ID:                testEntryId,
+		VaultId:           testVaultId,
+		Description:       "Test description",
+		EntryName:         "TestK8sSecret",
+		ConnectionType:    ServerConnectionCredential,
+		ConnectionSubType: ServerConnectionSubTypeDefault,
+		Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
+		Credentials:       NewEntryCredentials("TestK8s", "TestK8sPassword"),
+	}
+)
 
 func Test_Entries(t *testing.T) {
 	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
