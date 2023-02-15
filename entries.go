@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type Entry struct {
@@ -17,7 +16,7 @@ type Entry struct {
 	EntryName         string                  `json:"name"`
 	Description       string                  `json:"description"`
 	EntryFolderPath   string                  `json:"group"`
-	ModifiedDate      *time.Time              `json:"modifiedDate,omitempty"`
+	ModifiedDate      *ServerTime             `json:"modifiedDate,omitempty"`
 	ConnectionType    ServerConnectionType    `json:"connectionType"`
 	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
 	Tags              []string                `json:"keywords,omitempty"`
@@ -90,7 +89,7 @@ func (e *Entry) UnmarshalJSON(d []byte) error {
 			Name              string
 			Group             string
 			Username          string
-			ModifiedDate      string
+			ModifiedDate      *ServerTime
 			Keywords          string
 			RepositoryId      string
 			ConnectionType    ServerConnectionType
@@ -102,20 +101,11 @@ func (e *Entry) UnmarshalJSON(d []byte) error {
 		return err
 	}
 
-	var date *time.Time
-	if raw.Data.ModifiedDate != "" {
-		dateParsed, err := time.Parse("2006-01-02T15:04:05", raw.Data.ModifiedDate)
-		if err != nil {
-			return err
-		}
-		date = &dateParsed
-	}
-
 	e.ID = raw.Data.ID
 	e.EntryName = raw.Data.Name
 	e.ConnectionType = raw.Data.ConnectionType
 	e.ConnectionSubType = raw.Data.ConnectionSubType
-	e.ModifiedDate = date
+	e.ModifiedDate = raw.Data.ModifiedDate
 	e.Credentials.Username = raw.Data.Username
 	e.Description = raw.Data.Description
 	e.EntryFolderPath = raw.Data.Group
