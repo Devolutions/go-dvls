@@ -213,8 +213,8 @@ func (c *Client) GetEntryCredentialsPassword(entry Entry) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodPost, nil)
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
-	} else if resp.Result != 1 {
-		return Entry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Entry{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &secret)
@@ -237,8 +237,8 @@ func (c *Client) GetEntry(entryId string) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while fetching entry. error: %w", err)
-	} else if resp.Result != 1 {
-		return Entry{}, fmt.Errorf("unexpected result code %d. Make sure the entry ID is correct and the user has access to the entry", resp.Result)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Entry{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
@@ -270,10 +270,8 @@ func (c *Client) NewEntry(entry Entry) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
-	}
-	resultCode := SaveResult(resp.Result)
-	if resultCode != SaveResultSuccess {
-		return Entry{}, fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, resp.Message)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Entry{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
@@ -308,10 +306,8 @@ func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
-	}
-	resultCode := SaveResult(resp.Result)
-	if resultCode != SaveResultSuccess {
-		return Entry{}, fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, resp.Message)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Entry{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
@@ -331,8 +327,8 @@ func (c *Client) DeleteEntry(entryId string) error {
 	resp, err := c.Request(reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting entry. error: %w", err)
-	} else if resp.Result != 1 {
-		return fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return err
 	}
 
 	return nil

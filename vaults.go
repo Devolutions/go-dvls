@@ -81,8 +81,8 @@ func (c *Client) GetVault(vaultId string) (Vault, error) {
 	resp, err := c.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Vault{}, fmt.Errorf("error while fetching vault. error: %w", err)
-	} else if resp.Result != 1 {
-		return Vault{}, fmt.Errorf("unexpected result code %d. Make sure the vault ID is correct and the user has access to the vault", resp.Result)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Vault{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &vault)
@@ -110,10 +110,8 @@ func (c *Client) NewVault(vault Vault) error {
 	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
 	if err != nil {
 		return fmt.Errorf("error while creating vault. error: %w", err)
-	}
-	resultCode := SaveResult(resp.Result)
-	if resultCode != SaveResultSuccess {
-		return fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, resp.Message)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return err
 	}
 
 	return nil
@@ -141,8 +139,8 @@ func (c *Client) DeleteVault(vaultId string) error {
 	resp, err := c.Request(reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting vault. error: %w", err)
-	} else if resp.Result != 1 {
-		return fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return err
 	}
 
 	return nil

@@ -105,8 +105,8 @@ func (c *Client) GetServerInfo() (Server, error) {
 	resp, err := c.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
-	} else if resp.Result != 1 {
-		return Server{}, fmt.Errorf("unexpected result code %d", resp.Result)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Server{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &server)
@@ -127,8 +127,8 @@ func (c *Client) GetServerTimezones() ([]Timezone, error) {
 	resp, err := c.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching timezones. error: %w", err)
-	} else if resp.Result != 1 {
-		return nil, fmt.Errorf("unexpected result code %d", resp.Result)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return nil, err
 	}
 
 	raw := struct {
