@@ -70,3 +70,11 @@ func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader) (Re
 
 	return response, nil
 }
+
+func (r Response) CheckRespSaveResult() error {
+	resultCode := SaveResult(r.Result)
+	if resultCode != SaveResultSuccess {
+		return fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, r.Message)
+	}
+	return nil
+}
