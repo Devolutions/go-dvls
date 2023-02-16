@@ -1,5 +1,23 @@
 package dvls
 
+//go:generate stringer -type=SaveResult -trimprefix SaveResult
+type SaveResult uint8
+
+const (
+	SaveResultError SaveResult = iota
+	SaveResultSuccess
+	SaveResultAccessDenied
+	SaveResultInvalidData
+	SaveResultAlreadyExists
+	SaveResultMaximumReached
+	SaveResultNotFound
+	SaveResultLicenseExpired
+	SaveResultUnknown
+	SaveResultTwoFactorTypeNotConfigured
+	SaveResultWebApiRedirectToLogin
+	SaveResultDuplicateLoginEmail
+)
+
 //go:generate stringer -type=UserAuthenticationType -trimprefix UserAuthentication
 type UserAuthenticationType uint8
 
