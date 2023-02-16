@@ -3,11 +3,10 @@ package dvls
 import (
 	"reflect"
 	"testing"
-
-	"github.com/google/uuid"
 )
 
 const testVaultId string = "e0f4f35d-8cb5-40d9-8b2b-35c96ea1c9b5"
+const testNewVaultId string = "eabd3646-acf8-44a4-9ba0-991df147c209"
 
 var testVault Vault = Vault{
 	ID:          testVaultId,
@@ -16,6 +15,7 @@ var testVault Vault = Vault{
 }
 
 var testNewVault Vault = Vault{
+	ID:          testNewVaultId,
 	Name:        "go-dvls tests new",
 	Description: "Test",
 }
@@ -42,11 +42,6 @@ func test_GetVault(t *testing.T) {
 }
 
 func test_NewVault(t *testing.T) {
-	id := uuid.New()
-	t.Logf("generated uuid %v", id)
-
-	testNewVault.ID = id.String()
-
 	err := testClient.NewVault(testNewVault)
 	if err != nil {
 		t.Fatal(err)
