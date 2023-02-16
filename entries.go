@@ -270,8 +270,10 @@ func (c *Client) NewEntry(entry Entry) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
-	} else if resp.Result != 1 {
-		return Entry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	}
+	resultCode := SaveResult(resp.Result)
+	if resultCode != SaveResultSuccess {
+		return Entry{}, fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, resp.Message)
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
@@ -285,6 +287,10 @@ func (c *Client) NewEntry(entry Entry) (Entry, error) {
 func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
 		return Entry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+	}
+	_, err := c.GetEntry(entry.ID)
+	if err != nil {
+		return Entry{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	}
 
 	entry.ModifiedDate = nil
@@ -302,8 +308,10 @@ func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while creating entry. error: %w", err)
-	} else if resp.Result != 1 {
-		return Entry{}, fmt.Errorf("unexpected result code %d %s", resp.Result, resp.Message)
+	}
+	resultCode := SaveResult(resp.Result)
+	if resultCode != SaveResultSuccess {
+		return Entry{}, fmt.Errorf("unexpected result code %d (%s) %s", resultCode, resultCode, resp.Message)
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
