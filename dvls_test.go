@@ -6,8 +6,6 @@ import (
 	"testing"
 )
 
-const testVaultId string = "e0f4f35d-8cb5-40d9-8b2b-35c96ea1c9b5"
-
 var testClient Client
 
 func TestMain(m *testing.M) {
