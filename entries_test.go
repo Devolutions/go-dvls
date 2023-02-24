@@ -22,23 +22,11 @@ var (
 )
 
 func Test_Entries(t *testing.T) {
-	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("GetEntry", test_GetEntry)
+	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("NewEntry", test_NewEntry)
 	t.Run("UpdateEntry", test_UpdateEntry)
 	t.Run("DeleteEntry", test_DeleteEntry)
-}
-
-func test_GetEntryCredentialsPassword(t *testing.T) {
-	testSecret := testEntry.Credentials
-	secret, err := testClient.GetEntryCredentialsPassword(testEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(testSecret, secret.Credentials) {
-		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret.Credentials)
-	}
 }
 
 func test_GetEntry(t *testing.T) {
@@ -56,6 +44,18 @@ func test_GetEntry(t *testing.T) {
 
 	if !reflect.DeepEqual(entry, testGetEntry) {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testGetEntry, entry)
+	}
+}
+
+func test_GetEntryCredentialsPassword(t *testing.T) {
+	testSecret := testEntry.Credentials
+	secret, err := testClient.GetEntryCredentialsPassword(testEntry)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !reflect.DeepEqual(testSecret, secret.Credentials) {
+		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret.Credentials)
 	}
 }
 
