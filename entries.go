@@ -10,6 +10,7 @@ import (
 	"strings"
 )
 
+// Entry represents a DVLS entry/connection.
 type Entry struct {
 	ID                string                  `json:"id,omitempty"`
 	VaultId           string                  `json:"repositoryId"`
@@ -24,6 +25,7 @@ type Entry struct {
 	Credentials EntryCredentials `json:"data,omitempty"`
 }
 
+// MarshalJSON implements the json.Marshaler interface.
 func (e Entry) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		Id           string `json:"id,omitempty"`
@@ -81,6 +83,7 @@ func (e Entry) MarshalJSON() ([]byte, error) {
 	return entryJson, nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (e *Entry) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data struct {
@@ -132,11 +135,13 @@ func (e *Entry) UnmarshalJSON(d []byte) error {
 	return nil
 }
 
+// EntryCredentials represents an Entry Credentials fields.
 type EntryCredentials struct {
 	Username string
 	Password *string
 }
 
+// MarshalJSON implements the json.Marshaler interface.
 func (s EntryCredentials) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		AllowClipboard         bool    `json:"allowClipboard"`
@@ -169,6 +174,7 @@ func (s EntryCredentials) MarshalJSON() ([]byte, error) {
 	return secretJson, nil
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (s *EntryCredentials) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data string
@@ -203,6 +209,7 @@ const (
 	entryEndpoint string = "/api/connections/partial"
 )
 
+// GetEntryCredentialsPassword returns entry with the entry.Credentials.Password field.
 func (c *Client) GetEntryCredentialsPassword(entry Entry) (Entry, error) {
 	var secret EntryCredentials
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
@@ -227,6 +234,8 @@ func (c *Client) GetEntryCredentialsPassword(entry Entry) (Entry, error) {
 	return entry, nil
 }
 
+// GetEntry returns a single Entry specified by entryId. Call GetEntryCredentialsPassword with
+// the returned Entry to fetch the password.
 func (c *Client) GetEntry(entryId string) (Entry, error) {
 	var entry Entry
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entryId)
@@ -249,6 +258,7 @@ func (c *Client) GetEntry(entryId string) (Entry, error) {
 	return entry, nil
 }
 
+// NewEntry creates a new Entry based on entry.
 func (c *Client) NewEntry(entry Entry) (Entry, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
 		return Entry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
@@ -282,6 +292,7 @@ func (c *Client) NewEntry(entry Entry) (Entry, error) {
 	return entry, nil
 }
 
+// UpdateEntry updates an Entry based on entry. Will replace all other fields wether included or not.
 func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
 		return Entry{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
@@ -318,6 +329,7 @@ func (c *Client) UpdateEntry(entry Entry) (Entry, error) {
 	return entry, nil
 }
 
+// DeleteEntry deletes an entry based on entryId.
 func (c *Client) DeleteEntry(entryId string) error {
 	reqUrl, err := url.JoinPath(c.baseUri, entryEndpoint, entryId)
 	if err != nil {
@@ -334,6 +346,7 @@ func (c *Client) DeleteEntry(entryId string) error {
 	return nil
 }
 
+// NewEntryCredentials returns an EntryCredentials with an initialised EntryCredentials.Password.
 func NewEntryCredentials(username string, password string) EntryCredentials {
 	creds := EntryCredentials{
 		Username: username,

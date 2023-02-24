@@ -7,6 +7,8 @@ import (
 	"net/http"
 )
 
+// Response represents an HTTP response from the DVLS API. Contains the response body in bytes, the result code
+// and the result message.
 type Response struct {
 	Response []byte `json:"-"`
 	Result   uint8
@@ -22,6 +24,7 @@ func (e RequestError) Error() string {
 	return fmt.Sprintf("error while submitting request on url %s. error: %s", e.Url, e.Err.Error())
 }
 
+// Request returns a Response that contains the HTTP response body in bytes, the result code and result message.
 func (c *Client) Request(url string, reqMethod string, reqBody io.Reader) (Response, error) {
 	islogged, err := c.isLogged()
 	if err != nil {
@@ -62,6 +65,7 @@ func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader) (Re
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to read response body. error: %w", err), Url: url}
 	}
+	defer resp.Body.Close()
 
 	err = json.Unmarshal(response.Response, &response)
 	if err != nil {

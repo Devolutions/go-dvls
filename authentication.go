@@ -9,6 +9,7 @@ import (
 	"strings"
 )
 
+// Client represents the DVLS client used to communicate with the API.
 type Client struct {
 	client     *http.Client
 	baseUri    string
@@ -44,12 +45,14 @@ type loginParameters struct {
 	LocalUserName    string `json:"LocalUserName,omitempty"`
 }
 
+// User represents a DVLS user.
 type User struct {
 	ID       string
 	Username string
 	UserType UserAuthenticationType
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (u *User) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data struct {
@@ -82,6 +85,8 @@ const (
 	isLoggedEndpoint string = "/api/is-logged"
 )
 
+// NewClient returns a new Client configured with the specified credentials and
+// base URI. baseUri should be the full URI to your DVLS instance (ex.: https://dvls.your-dvls-instance.com)
 func NewClient(username string, password string, baseUri string) (Client, error) {
 	credential := credentials{username: username, password: password}
 	client := Client{

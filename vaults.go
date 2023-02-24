@@ -8,6 +8,7 @@ import (
 	"net/url"
 )
 
+// Vault represents a DVLS vault. Contains relevant vault information.
 type Vault struct {
 	ID           string
 	Name         string
@@ -16,6 +17,7 @@ type Vault struct {
 	ModifiedDate *ServerTime
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (v *Vault) UnmarshalJSON(b []byte) error {
 	type rawVault Vault
 	var raw struct {
@@ -32,6 +34,7 @@ func (v *Vault) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+// MarshalJSON implements the json.Marshaler interface.
 func (v Vault) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		Description            string `json:"description"`
@@ -71,6 +74,7 @@ const (
 	vaultEndpoint string = "/api/security/repositories"
 )
 
+// GetVault returns a single Vault based on vaultId.
 func (c *Client) GetVault(vaultId string) (Vault, error) {
 	var vault Vault
 	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint, vaultId)
@@ -93,6 +97,7 @@ func (c *Client) GetVault(vaultId string) (Vault, error) {
 	return vault, nil
 }
 
+// NewVault creates a new Vault based on vault.
 func (c *Client) NewVault(vault Vault) error {
 	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint)
 	if err != nil {
@@ -117,6 +122,7 @@ func (c *Client) NewVault(vault Vault) error {
 	return nil
 }
 
+// UpdateVault updates a Vault based on vault.
 func (c *Client) UpdateVault(vault Vault) error {
 	_, err := c.GetVault(vault.ID)
 	if err != nil {
@@ -130,6 +136,7 @@ func (c *Client) UpdateVault(vault Vault) error {
 	return nil
 }
 
+// DeleteVault deletes a Vault based on vaultId.
 func (c *Client) DeleteVault(vaultId string) error {
 	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint, vaultId)
 	if err != nil {

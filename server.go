@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// Server represents the available server instance information.
 type Server struct {
 	AccessUri     string
 	TimeZone      string
@@ -17,6 +18,7 @@ type Server struct {
 	SystemMessage string
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (s *Server) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		Data struct {
@@ -41,6 +43,7 @@ func (s *Server) UnmarshalJSON(d []byte) error {
 	return nil
 }
 
+// Timezone represents a Server timezone.
 type Timezone struct {
 	Id                         string
 	DisplayName                string
@@ -51,6 +54,7 @@ type Timezone struct {
 	SupportsDaylightSavingTime bool
 }
 
+// TimezoneAdjustmentRule represents a Timezone Adjustment Rule.
 type TimezoneAdjustmentRule struct {
 	DateStart               ServerTime
 	DateEnd                 ServerTime
@@ -61,6 +65,7 @@ type TimezoneAdjustmentRule struct {
 	NoDaylightTransitions   bool
 }
 
+// TimezoneAdjustmentRuleTransitionTime represents a Timezone Adjustment Rule Transition Time.
 type TimezoneAdjustmentRuleTransitionTime struct {
 	TimeOfDay       ServerTime
 	Month           int
@@ -70,10 +75,12 @@ type TimezoneAdjustmentRuleTransitionTime struct {
 	IsFixedDateRule bool
 }
 
+// ServerTime represents a time.Time that parses the correct server time layout.
 type ServerTime struct {
 	time.Time
 }
 
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (z *ServerTime) UnmarshalJSON(d []byte) error {
 	s := strings.Trim(string(d), "\"")
 	if s == "null" {
@@ -95,6 +102,7 @@ const (
 	serverTimeLayout        string = "2006-01-02T15:04:05"
 )
 
+// GetServerInfo returns Server that contains information on the DVLS instance.
 func (c *Client) GetServerInfo() (Server, error) {
 	var server Server
 	reqUrl, err := url.JoinPath(c.baseUri, serverInfoEndpoint)
@@ -117,6 +125,8 @@ func (c *Client) GetServerInfo() (Server, error) {
 	return server, nil
 }
 
+// GetServerTimezones returns an array of Timezone that contains all of the available timezones on
+// the DVLS instance.
 func (c *Client) GetServerTimezones() ([]Timezone, error) {
 	var timezones []Timezone
 	reqUrl, err := url.JoinPath(c.baseUri, serverTimezonesEndpoint)
