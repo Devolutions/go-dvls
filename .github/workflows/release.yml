@@ -16,13 +16,21 @@ jobs:
       - name: Check out ${{ github.repository }}
         uses: actions/checkout@v3
 
+      - name: Check out Devolutions/actions
+        uses: actions/checkout@v3
+        with:
+          repository: Devolutions/actions
+          ref: master
+          token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
+          path: ./.github/workflows
+
       - name: Set version
         id: get-version
         run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
 
       - name: Create release
         id: create-release
-        uses: devolutions/actions/create-release@master
+        uses: ./.github/workflows/create-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
