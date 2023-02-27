@@ -5,7 +5,6 @@ import (
 	"testing"
 )
 
-const testVaultId string = "e0f4f35d-8cb5-40d9-8b2b-35c96ea1c9b5"
 const testNewVaultId string = "eabd3646-acf8-44a4-9ba0-991df147c209"
 
 var testVault Vault = Vault{

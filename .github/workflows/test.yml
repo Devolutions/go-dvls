@@ -72,6 +72,8 @@ jobs:
           TEST_USER: ${{ secrets.TEST_USER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_INSTANCE: ${{ secrets.TEST_INSTANCE }}
+          TEST_ENTRY_ID: ${{ secrets.TEST_ENTRY_ID }}
+          TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
         with:
           user: devolutionsbot
           token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
