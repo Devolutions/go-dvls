@@ -5,8 +5,6 @@ import (
 	"testing"
 )
 
-const testEntryId string = "44d2d1c1-bae9-4701-bbff-598d2d76a339"
-
 var (
 	testNewEntry Entry
 	testEntry    Entry = Entry{

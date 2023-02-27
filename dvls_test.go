@@ -6,13 +6,21 @@ import (
 	"testing"
 )
 
-var testClient Client
+var (
+	testClient  Client
+	testEntryId string
+	testVaultId string
+)
 
 func TestMain(m *testing.M) {
+	testEntryId = os.Getenv("TEST_ENTRY_ID")
+	testVaultId = os.Getenv("TEST_VAULT_ID")
+
 	err := setupTestClient()
 	if err != nil {
 		log.Fatal(err)
 	}
+
 	exitCode := m.Run()
 	os.Exit(exitCode)
 }
