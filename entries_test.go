@@ -8,8 +8,6 @@ import (
 var (
 	testNewEntry Entry
 	testEntry    Entry = Entry{
-		ID:                testEntryId,
-		VaultId:           testVaultId,
 		Description:       "Test description",
 		EntryName:         "TestK8sSecret",
 		ConnectionType:    ServerConnectionCredential,
@@ -20,6 +18,9 @@ var (
 )
 
 func Test_Entries(t *testing.T) {
+	testEntry.ID = testEntryId
+	testEntry.VaultId = testVaultId
+
 	t.Run("GetEntry", test_GetEntry)
 	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("NewEntry", test_NewEntry)
