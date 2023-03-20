@@ -8,7 +8,6 @@ import (
 const testNewVaultId string = "eabd3646-acf8-44a4-9ba0-991df147c209"
 
 var testVault Vault = Vault{
-	ID:          testVaultId,
 	Name:        "go-dvls tests",
 	Description: "Test Vault",
 }
@@ -20,6 +19,7 @@ var testNewVault Vault = Vault{
 }
 
 func Test_Vaults(t *testing.T) {
+	testVault.ID = testVaultId
 	t.Run("GetVault", test_GetVault)
 	t.Run("NewVault", test_NewVault)
 	t.Run("UpdateVault", test_UpdateVault)
