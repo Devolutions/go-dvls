@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     environment: test-application
 
     steps:
@@ -22,7 +22,7 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: Devolutions/actions
-          ref: master
+          ref: v1
           token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
           path: ./.github/workflows
 
@@ -31,15 +31,16 @@ jobs:
         run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
 
       - name: Does tag exists?
-        uses: ./.github/workflows/tag-exists
+        uses: ./.github/workflows/tag-check
         with:
+          github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
           tag: v${{ steps.get-version.outputs.version }}
-          comment_on_pr_string: 🤖 You did not bump the version, a release won't be created ⚠️
 
       - name: Setup Go environment
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v4
         with:
-          go-version: ${{ secrets.GO_VERSION }}
+          go-version: '1.20'
+          check-latest: true
 
       - uses: actions/cache@v3
         with:
@@ -62,9 +63,9 @@ jobs:
       - name: Connect to Tailscale
         uses: ./.github/workflows/tailscale
         with:
-          authKey: ${{ secrets.TAILSCALE_AUTH_KEY_EPHEMERAL }}
-          exitNode: 100.99.49.20
-          acceptDns: true
+          auth_key: ${{ secrets.TAILSCALE_AUTH_KEY_EPHEMERAL }}
+          exit_node: 100.99.49.20
+          accept_dns: true
 
       - name: Test application
         uses: ./.github/workflows/go-test
@@ -75,5 +76,4 @@ jobs:
           TEST_ENTRY_ID: ${{ secrets.TEST_ENTRY_ID }}
           TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
         with:
-          user: devolutionsbot
-          token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
+          github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
