@@ -42,13 +42,6 @@ jobs:
           go-version: '1.20'
           check-latest: true
 
-      - uses: actions/cache@v3
-        with:
-          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-          path: ~/go/pkg/mod
-          restore-keys: |
-            ${{ runner.os }}-go-
-
       - name: Download CA certificate
         uses: ./.github/workflows/create-file-from-secret
         with:
