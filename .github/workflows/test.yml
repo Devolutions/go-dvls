@@ -16,10 +16,10 @@ jobs:
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Check out Devolutions/actions
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: Devolutions/actions
           ref: v1
@@ -33,11 +33,11 @@ jobs:
       - name: Does tag exists?
         uses: ./.github/workflows/tag-check
         with:
-          github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
+          github_token: ${{ github.token }}
           tag: v${{ steps.get-version.outputs.version }}
 
       - name: Setup Go environment
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: '1.20'
           check-latest: true
