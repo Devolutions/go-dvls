@@ -14,10 +14,10 @@ jobs:
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Check out Devolutions/actions
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: Devolutions/actions
           ref: v1
