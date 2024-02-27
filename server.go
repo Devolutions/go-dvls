@@ -97,15 +97,39 @@ func (z *ServerTime) UnmarshalJSON(d []byte) error {
 }
 
 const (
-	serverInfoEndpoint      string = "/api/server-information"
-	serverTimezonesEndpoint string = "/api/configuration/timezones"
-	serverTimeLayout        string = "2006-01-02T15:04:05"
+	serverPublicInfoEndpoint  string = "api/public-instance-information"
+	serverPrivateInfoEndpoint string = "api/private-instance-information"
+	serverTimezonesEndpoint   string = "/api/configuration/timezones"
+	serverTimeLayout          string = "2006-01-02T15:04:05"
 )
 
-// GetServerInfo returns Server that contains information on the DVLS instance.
-func (c *Client) GetServerInfo() (Server, error) {
+// GetPublicServerInfo returns Server that contains public information on the DVLS instance.
+func (c *Client) GetPublicServerInfo() (Server, error) {
 	var server Server
-	reqUrl, err := url.JoinPath(c.baseUri, serverInfoEndpoint)
+	reqUrl, err := url.JoinPath(c.baseUri, serverPublicInfoEndpoint)
+	if err != nil {
+		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
+	}
+
+	resp, err := c.Request(reqUrl, http.MethodGet, nil)
+	if err != nil {
+		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
+	} else if err = resp.CheckRespSaveResult(); err != nil {
+		return Server{}, err
+	}
+
+	err = json.Unmarshal(resp.Response, &server)
+	if err != nil {
+		return Server{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+	}
+
+	return server, nil
+}
+
+// GetPrivateServerInfo returns Server that contains private information on the DVLS instance (need authentication).
+func (c *Client) GetPrivateServerInfo() (Server, error) {
+	var server Server
+	reqUrl, err := url.JoinPath(c.baseUri, serverPrivateInfoEndpoint)
 	if err != nil {
 		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
 	}

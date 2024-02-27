@@ -5,12 +5,20 @@ import (
 )
 
 func Test_Server(t *testing.T) {
-	t.Run("GetServerInfo", test_GetServerInfo)
+	t.Run("GetPublicServerInfo", test_GetPublicServerInfo)
+	t.Run("GetPrivateServerInfo", test_GetPrivateServerInfo)
 	t.Run("GetTimezones", test_GetTimezones)
 }
 
-func test_GetServerInfo(t *testing.T) {
-	_, err := testClient.GetServerInfo()
+func test_GetPublicServerInfo(t *testing.T) {
+	_, err := testClient.GetPublicServerInfo()
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func test_GetPrivateServerInfo(t *testing.T) {
+	_, err := testClient.GetPrivateServerInfo()
 	if err != nil {
 		t.Fatal(err)
 	}
