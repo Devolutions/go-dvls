@@ -7,6 +7,8 @@ import (
 
 const testNewVaultId string = "eabd3646-acf8-44a4-9ba0-991df147c209"
 
+var testNewVaultPassword string = "5w:mr6kPj"
+
 var testVault Vault = Vault{
 	Name:        "go-dvls tests",
 	Description: "Test Vault",
@@ -41,7 +43,7 @@ func test_GetVault(t *testing.T) {
 }
 
 func test_NewVault(t *testing.T) {
-	err := testClient.NewVault(testNewVault)
+	err := testClient.NewVault(testNewVault, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -62,10 +64,20 @@ func test_NewVault(t *testing.T) {
 func test_UpdateVault(t *testing.T) {
 	testNewVault.Name = "go-dvls tests new updated"
 	testNewVault.Description = "Test updated"
+	options := VaultOptions{Password: &testNewVaultPassword}
 
-	err := testClient.UpdateVault(testNewVault)
+	err := testClient.UpdateVault(testNewVault, &options)
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	valid, err := testClient.ValidateVaultPassword(testNewVault.ID, testNewVaultPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if !valid {
+		t.Fatal("vault password validation failed, expected ", testNewVaultPassword)
 	}
 
 	vault, err := testClient.GetVault(testNewVault.ID)
