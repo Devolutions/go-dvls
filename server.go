@@ -120,7 +120,7 @@ func (c *Client) GetPublicServerInfo() (Server, error) {
 
 	err = json.Unmarshal(resp.Response, &server)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Server{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
 	return server, nil
@@ -143,7 +143,7 @@ func (c *Client) GetPrivateServerInfo() (Server, error) {
 
 	err = json.Unmarshal(resp.Response, &server)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Server{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
 	return server, nil
@@ -170,7 +170,7 @@ func (c *Client) GetServerTimezones() ([]Timezone, error) {
 	}{}
 	err = json.Unmarshal(resp.Response, &raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
 	timezones = raw.Data

@@ -69,7 +69,7 @@ func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader) (Re
 
 	err = json.Unmarshal(response.Response, &response)
 	if err != nil {
-		return response, &RequestError{Err: fmt.Errorf("failed to unmarshall response body. error: %w", err), Url: url}
+		return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
 	}
 
 	return response, nil
