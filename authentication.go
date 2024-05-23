@@ -14,8 +14,16 @@ type Client struct {
 	client     *http.Client
 	baseUri    string
 	credential credentials
-
 	ClientUser User
+
+	common service
+
+	Entries *Entries
+	Vaults  *Vaults
+}
+
+type service struct {
+	client *Client
 }
 
 type credentials struct {
@@ -102,6 +110,13 @@ func NewClient(username string, password string, baseUri string) (Client, error)
 
 	client.ClientUser = user
 
+	client.common.client = &client
+
+	client.Entries = &Entries{
+		UserCredential: (*EntryUserCredentialService)(&client.common),
+	}
+	client.Vaults = (*Vaults)(&client.common)
+
 	return client, nil
 }
 
@@ -115,7 +130,7 @@ func (c *Client) login() (User, error) {
 	}
 	loginJson, err := json.Marshal(loginBody)
 	if err != nil {
-		return User{}, fmt.Errorf("failed to marshall login body. error: %w", err)
+		return User{}, fmt.Errorf("failed to marshal login body. error: %w", err)
 	}
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
@@ -131,7 +146,7 @@ func (c *Client) login() (User, error) {
 	var loginResponse loginResponse
 	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
-		return User{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return User{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 	if loginResponse.Data.Result != ServerLoginSuccess {
 		return User{}, fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)
@@ -140,7 +155,7 @@ func (c *Client) login() (User, error) {
 	var user User
 	err = json.Unmarshal(resp.Response, &user)
 	if err != nil {
-		return User{}, fmt.Errorf("failed to unmarshall user body. error: %w", err)
+		return User{}, fmt.Errorf("failed to unmarshal user body. error: %w", err)
 	}
 
 	c.credential.token = loginResponse.Data.TokenId
@@ -158,7 +173,7 @@ func (c *Client) refreshToken() error {
 	}
 	loginJson, err := json.Marshal(loginBody)
 	if err != nil {
-		return fmt.Errorf("failed to marshall login body. error: %w", err)
+		return fmt.Errorf("failed to marshal login body. error: %w", err)
 	}
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
@@ -174,7 +189,7 @@ func (c *Client) refreshToken() error {
 	var loginResponse loginResponse
 	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 	if loginResponse.Data.Result != ServerLoginSuccess {
 		return fmt.Errorf("failed to refresh token (%s) : %s", loginResponse.Data.Result, loginResponse.Data.Message)

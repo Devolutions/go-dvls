@@ -8,6 +8,8 @@ import (
 	"net/url"
 )
 
+type Vaults service
+
 // Vault represents a DVLS vault. Contains relevant vault information.
 type Vault struct {
 	ID            string
@@ -120,15 +122,15 @@ const (
 	vaultEndpoint string = "/api/security/repositories"
 )
 
-// GetVault returns a single Vault based on vaultId.
-func (c *Client) GetVault(vaultId string) (Vault, error) {
+// Get returns a single Vault based on vaultId.
+func (c *Vaults) Get(vaultId string) (Vault, error) {
 	var vault Vault
-	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint, vaultId)
+	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
 	if err != nil {
 		return Vault{}, fmt.Errorf("failed to build vault url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.client.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Vault{}, fmt.Errorf("error while fetching vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -137,15 +139,15 @@ func (c *Client) GetVault(vaultId string) (Vault, error) {
 
 	err = json.Unmarshal(resp.Response, &vault)
 	if err != nil {
-		return Vault{}, fmt.Errorf("failed to unmarshall response body. error: %w", err)
+		return Vault{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
 	return vault, nil
 }
 
-// NewVault creates a new Vault based on vault.
-func (c *Client) NewVault(vault Vault, options *VaultOptions) error {
-	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint)
+// New creates a new Vault based on vault.
+func (c *Vaults) New(vault Vault, options *VaultOptions) error {
+	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to build vault url. error: %w", err)
 	}
@@ -159,10 +161,10 @@ func (c *Client) NewVault(vault Vault, options *VaultOptions) error {
 
 	vaultJson, err := json.Marshal(vault)
 	if err != nil {
-		return fmt.Errorf("failed to marshall body. error: %w", err)
+		return fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
+	resp, err := c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
 	if err != nil {
 		return fmt.Errorf("error while creating vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -172,14 +174,14 @@ func (c *Client) NewVault(vault Vault, options *VaultOptions) error {
 	return nil
 }
 
-// UpdateVault updates a Vault based on vault.
-func (c *Client) UpdateVault(vault Vault, options *VaultOptions) error {
-	_, err := c.GetVault(vault.ID)
+// Update updates a Vault based on vault.
+func (c *Vaults) Update(vault Vault, options *VaultOptions) error {
+	_, err := c.client.Vaults.Get(vault.ID)
 	if err != nil {
 		return fmt.Errorf("error while fetching vault. error: %w", err)
 	}
 
-	err = c.NewVault(vault, options)
+	err = c.client.Vaults.New(vault, options)
 	if err != nil {
 		return fmt.Errorf("error while updating vault. error: %w", err)
 	}
@@ -187,14 +189,14 @@ func (c *Client) UpdateVault(vault Vault, options *VaultOptions) error {
 	return nil
 }
 
-// DeleteVault deletes a Vault based on vaultId.
-func (c *Client) DeleteVault(vaultId string) error {
-	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint, vaultId)
+// Delete deletes a Vault based on vaultId.
+func (c *Vaults) Delete(vaultId string) error {
+	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
 	if err != nil {
 		return fmt.Errorf("failed to delete vault url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodDelete, nil)
+	resp, err := c.client.Request(reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -204,14 +206,14 @@ func (c *Client) DeleteVault(vaultId string) error {
 	return nil
 }
 
-// ValidateVaultPassword validates a Vault password based on vaultId and password.
-func (c *Client) ValidateVaultPassword(vaultId string, password string) (bool, error) {
-	reqUrl, err := url.JoinPath(c.baseUri, vaultEndpoint, vaultId, "login")
+// ValidatePassword validates a Vault password based on vaultId and password.
+func (c *Vaults) ValidatePassword(vaultId string, password string) (bool, error) {
+	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId, "login")
 	if err != nil {
 		return false, fmt.Errorf("failed to build vault url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBufferString(fmt.Sprintf("\"%s\"", password)))
+	resp, err := c.client.Request(reqUrl, http.MethodPost, bytes.NewBufferString(fmt.Sprintf("\"%s\"", password)))
 	if err != nil {
 		return false, fmt.Errorf("error while fetching vault. error: %w", err)
 	} else if resp.Result == uint8(SaveResultAccessDenied) {

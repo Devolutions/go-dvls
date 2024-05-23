@@ -6,20 +6,25 @@ import (
 )
 
 var (
-	testNewEntry Entry
-	testEntry    Entry = Entry{
+	testNewEntry EntryUserCredential
+	testEntry    EntryUserCredential = EntryUserCredential{
 		Description:       "Test description",
 		EntryName:         "TestK8sSecret",
 		ConnectionType:    ServerConnectionCredential,
 		ConnectionSubType: ServerConnectionSubTypeDefault,
 		Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
-		Credentials:       NewEntryCredentials("TestK8s", "TestK8sPassword"),
 	}
+)
+
+const (
+	testEntryUsername string = "TestK8s"
+	testEntryPassword string = "TestK8sPassword"
 )
 
 func Test_Entries(t *testing.T) {
 	testEntry.ID = testEntryId
 	testEntry.VaultId = testVaultId
+	testEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails(testEntryUsername, testEntryPassword)
 
 	t.Run("GetEntry", test_GetEntry)
 	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
@@ -31,14 +36,15 @@ func Test_Entries(t *testing.T) {
 func test_GetEntry(t *testing.T) {
 	testGetEntry := testEntry
 
-	testGetEntry.Credentials = EntryCredentials{
+	testGetEntry.Credentials = EntryUserAuthDetails{
 		Username: testEntry.Credentials.Username,
 	}
-	entry, err := testClient.GetEntry(testGetEntry.ID)
+	entry, err := testClient.Entries.UserCredential.Get(testGetEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
+	testClient.Entries.UserCredential.Get(testGetEntry.ID)
 	testGetEntry.ModifiedDate = entry.ModifiedDate
 
 	if !reflect.DeepEqual(entry, testGetEntry) {
@@ -48,7 +54,7 @@ func test_GetEntry(t *testing.T) {
 
 func test_GetEntryCredentialsPassword(t *testing.T) {
 	testSecret := testEntry.Credentials
-	secret, err := testClient.GetEntryCredentialsPassword(testEntry)
+	secret, err := testClient.Entries.UserCredential.GetUserAuthDetails(testEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +69,7 @@ func test_NewEntry(t *testing.T) {
 
 	testNewEntry.EntryName = "TestK8sNewEntry"
 
-	entry, err := testClient.NewEntry(testNewEntry)
+	entry, err := testClient.Entries.UserCredential.New(testNewEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,9 +88,9 @@ func test_NewEntry(t *testing.T) {
 func test_UpdateEntry(t *testing.T) {
 	testUpdatedEntry := testNewEntry
 	testUpdatedEntry.EntryName = "TestK8sUpdatedEntry"
-	testUpdatedEntry.Credentials = NewEntryCredentials("TestK8sUpdatedUser", "TestK8sUpdatedPassword")
+	testUpdatedEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails("TestK8sUpdatedUser", "TestK8sUpdatedPassword")
 
-	entry, err := testClient.UpdateEntry(testUpdatedEntry)
+	entry, err := testClient.Entries.UserCredential.Update(testUpdatedEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,7 +106,7 @@ func test_UpdateEntry(t *testing.T) {
 }
 
 func test_DeleteEntry(t *testing.T) {
-	err := testClient.DeleteEntry(testNewEntry.ID)
+	err := testClient.Entries.UserCredential.Delete(testNewEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
