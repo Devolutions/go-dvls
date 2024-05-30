@@ -20,12 +20,16 @@ type RequestError struct {
 	Err error
 }
 
+type RequestOptions struct {
+	ContentType string
+}
+
 func (e RequestError) Error() string {
 	return fmt.Sprintf("error while submitting request on url %s. error: %s", e.Url, e.Err.Error())
 }
 
 // Request returns a Response that contains the HTTP response body in bytes, the result code and result message.
-func (c *Client) Request(url string, reqMethod string, reqBody io.Reader) (Response, error) {
+func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
 	islogged, err := c.isLogged()
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status. error: %w", err), Url: url}
@@ -37,20 +41,26 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader) (Respo
 		}
 	}
 
-	resp, err := c.rawRequest(url, reqMethod, reqBody)
+	resp, err := c.rawRequest(url, reqMethod, reqBody, options...)
 	if err != nil {
 		return Response{}, err
 	}
 	return resp, nil
 }
 
-func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader) (Response, error) {
+func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
+	contentType := "application/json"
+
+	if len(options) > 0 {
+		contentType = options[0].ContentType
+	}
+
 	req, err := http.NewRequest(reqMethod, url, reqBody)
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to make request. error: %w", err), Url: url}
 	}
 
-	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("tokenId", c.credential.token)
 
 	resp, err := c.client.Do(req)
