@@ -27,8 +27,9 @@ func Test_Entries(t *testing.T) {
 	testEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails(testEntryUsername, testEntryPassword)
 
 	t.Run("GetEntry", test_GetEntry)
-	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("NewEntry", test_NewEntry)
+	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
+
 	t.Run("UpdateEntry", test_UpdateEntry)
 	t.Run("DeleteEntry", test_DeleteEntry)
 }

@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
-	"strings"
 )
 
 type EntryUserCredentialService service
@@ -56,14 +54,8 @@ func (e EntryUserCredential) MarshalJSON() ([]byte, error) {
 		Keywords          string                  `json:"keywords"`
 	}{}
 
-	for i, v := range e.Tags {
-		if strings.Contains(v, " ") {
-			e.Tags[i] = "\"" + v + "\""
-		}
-	}
-
 	raw.Id = e.ID
-	raw.Keywords = strings.Join(e.Tags, " ")
+	raw.Keywords = sliceToKeywords(e.Tags)
 	raw.Description = e.Description
 	raw.RepositoryId = e.VaultId
 	raw.Group = e.EntryFolderPath
@@ -116,23 +108,7 @@ func (e *EntryUserCredential) UnmarshalJSON(d []byte) error {
 	e.EntryFolderPath = raw.Data.Group
 	e.VaultId = raw.Data.RepositoryId
 
-	var spacedTag bool
-	tags := strings.FieldsFunc(raw.Data.Keywords, func(r rune) bool {
-		if r == '"' {
-			spacedTag = !spacedTag
-		}
-		return !spacedTag && r == ' '
-	})
-	for i, v := range tags {
-		unquotedTag, err := strconv.Unquote(v)
-		if err != nil {
-			continue
-		}
-
-		tags[i] = unquotedTag
-	}
-
-	e.Tags = tags
+	e.Tags = keywordsToSlice(raw.Data.Keywords)
 
 	return nil
 }
@@ -206,10 +182,6 @@ func (s *EntryUserAuthDetails) UnmarshalJSON(d []byte) error {
 
 	return nil
 }
-
-const (
-	entryEndpoint string = "/api/connections/partial"
-)
 
 // GetUserAuthDetails returns entry with the entry.Credentials.Password field.
 func (c *EntryUserCredentialService) GetUserAuthDetails(entry EntryUserCredential) (EntryUserCredential, error) {
@@ -294,7 +266,7 @@ func (c *EntryUserCredentialService) New(entry EntryUserCredential) (EntryUserCr
 	return entry, nil
 }
 
-// Update updates an EntryUserCredential based on entry. Will replace all other fields wether included or not.
+// Update updates an EntryUserCredential based on entry. Will replace all other fields whether included or not.
 func (c *EntryUserCredentialService) Update(entry EntryUserCredential) (EntryUserCredential, error) {
 	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
 		return EntryUserCredential{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
