@@ -1,13 +1,15 @@
 package dvls
 
 import (
+	"os"
 	"reflect"
 	"testing"
 )
 
 var (
-	testNewEntry EntryUserCredential
-	testEntry    EntryUserCredential = EntryUserCredential{
+	testUserEntryId  string
+	testNewUserEntry EntryUserCredential
+	testUserEntry    EntryUserCredential = EntryUserCredential{
 		Description:       "Test description",
 		EntryName:         "TestK8sSecret",
 		ConnectionType:    ServerConnectionCredential,
@@ -21,24 +23,25 @@ const (
 	testEntryPassword string = "TestK8sPassword"
 )
 
-func Test_Entries(t *testing.T) {
-	testEntry.ID = testEntryId
-	testEntry.VaultId = testVaultId
-	testEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails(testEntryUsername, testEntryPassword)
+func Test_EntryUserCredentials(t *testing.T) {
+	testUserEntryId = os.Getenv("TEST_USER_ENTRY_ID")
+	testUserEntry.ID = testUserEntryId
+	testUserEntry.VaultId = testVaultId
+	testUserEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails(testEntryUsername, testEntryPassword)
 
-	t.Run("GetEntry", test_GetEntry)
-	t.Run("NewEntry", test_NewEntry)
+	t.Run("GetEntry", test_GetUserEntry)
+	t.Run("NewEntry", test_NewUserEntry)
 	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 
-	t.Run("UpdateEntry", test_UpdateEntry)
-	t.Run("DeleteEntry", test_DeleteEntry)
+	t.Run("UpdateEntry", test_UpdateUserEntry)
+	t.Run("DeleteEntry", test_DeleteUserEntry)
 }
 
-func test_GetEntry(t *testing.T) {
-	testGetEntry := testEntry
+func test_GetUserEntry(t *testing.T) {
+	testGetEntry := testUserEntry
 
 	testGetEntry.Credentials = EntryUserAuthDetails{
-		Username: testEntry.Credentials.Username,
+		Username: testUserEntry.Credentials.Username,
 	}
 	entry, err := testClient.Entries.UserCredential.Get(testGetEntry.ID)
 	if err != nil {
@@ -54,8 +57,8 @@ func test_GetEntry(t *testing.T) {
 }
 
 func test_GetEntryCredentialsPassword(t *testing.T) {
-	testSecret := testEntry.Credentials
-	secret, err := testClient.Entries.UserCredential.GetUserAuthDetails(testEntry)
+	testSecret := testUserEntry.Credentials
+	secret, err := testClient.Entries.UserCredential.GetUserAuthDetails(testUserEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,29 +68,29 @@ func test_GetEntryCredentialsPassword(t *testing.T) {
 	}
 }
 
-func test_NewEntry(t *testing.T) {
-	testNewEntry = testEntry
+func test_NewUserEntry(t *testing.T) {
+	testNewUserEntry = testUserEntry
 
-	testNewEntry.EntryName = "TestK8sNewEntry"
+	testNewUserEntry.EntryName = "TestK8sNewEntry"
 
-	entry, err := testClient.Entries.UserCredential.New(testNewEntry)
+	entry, err := testClient.Entries.UserCredential.New(testNewUserEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testNewEntry.ID = entry.ID
-	testNewEntry.ModifiedDate = entry.ModifiedDate
-	testNewEntry.Tags = entry.Tags
+	testNewUserEntry.ID = entry.ID
+	testNewUserEntry.ModifiedDate = entry.ModifiedDate
+	testNewUserEntry.Tags = entry.Tags
 
-	if !reflect.DeepEqual(entry, testNewEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testNewEntry, entry)
+	if !reflect.DeepEqual(entry, testNewUserEntry) {
+		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testNewUserEntry, entry)
 	}
 
-	testNewEntry = entry
+	testNewUserEntry = entry
 }
 
-func test_UpdateEntry(t *testing.T) {
-	testUpdatedEntry := testNewEntry
+func test_UpdateUserEntry(t *testing.T) {
+	testUpdatedEntry := testNewUserEntry
 	testUpdatedEntry.EntryName = "TestK8sUpdatedEntry"
 	testUpdatedEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails("TestK8sUpdatedUser", "TestK8sUpdatedPassword")
 
@@ -103,11 +106,11 @@ func test_UpdateEntry(t *testing.T) {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testUpdatedEntry, entry)
 	}
 
-	testNewEntry = entry
+	testNewUserEntry = entry
 }
 
-func test_DeleteEntry(t *testing.T) {
-	err := testClient.Entries.UserCredential.Delete(testNewEntry.ID)
+func test_DeleteUserEntry(t *testing.T) {
+	err := testClient.Entries.UserCredential.Delete(testNewUserEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -22,6 +22,7 @@ type RequestError struct {
 
 type RequestOptions struct {
 	ContentType string
+	RawBody     bool
 }
 
 func (e RequestError) Error() string {
@@ -50,9 +51,11 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, option
 
 func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
 	contentType := "application/json"
+	var rawBody bool
 
 	if len(options) > 0 {
 		contentType = options[0].ContentType
+		rawBody = options[0].RawBody
 	}
 
 	req, err := http.NewRequest(reqMethod, url, reqBody)
@@ -77,9 +80,11 @@ func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader, opt
 	}
 	defer resp.Body.Close()
 
-	err = json.Unmarshal(response.Response, &response)
-	if err != nil {
-		return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
+	if !rawBody {
+		err = json.Unmarshal(response.Response, &response)
+		if err != nil {
+			return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
+		}
 	}
 
 	return response, nil

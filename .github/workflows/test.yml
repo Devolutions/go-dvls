@@ -48,6 +48,13 @@ jobs:
           content: ${{ secrets.DEVOLUTIONS_HQ_ISSUING_CA_PEM }}
           path: ${{ runner.temp }}/certificate.pem
 
+      - name: Download test certificate
+        uses: ./.github/workflows/create-file-from-secret
+        with:
+          content: ${{ secrets.TEST_CERTIFICATE }}
+          path: ${{ runner.temp }}/test.p12
+          format: base64
+
       - name: Update CA store
         run: |
           sudo cp ${{ runner.temp }}/certificate.pem /usr/local/share/ca-certificates/certificate.crt
@@ -66,7 +73,9 @@ jobs:
           TEST_USER: ${{ secrets.TEST_USER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_INSTANCE: ${{ secrets.TEST_INSTANCE }}
-          TEST_ENTRY_ID: ${{ secrets.TEST_ENTRY_ID }}
+          TEST_USER_ENTRY_ID: ${{ secrets.TEST_USER_ENTRY_ID }}
+          TEST_CERTIFICATE_ENTRY_ID: ${{ secrets.TEST_CERTIFICATE_ENTRY_ID }}
+          TEST_CERTIFICATE_FILE_PATH: '${{ runner.temp }}/test.p12'
           TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
         with:
           github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}

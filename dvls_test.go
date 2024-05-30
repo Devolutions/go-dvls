@@ -8,12 +8,10 @@ import (
 
 var (
 	testClient  Client
-	testEntryId string
 	testVaultId string
 )
 
 func TestMain(m *testing.M) {
-	testEntryId = os.Getenv("TEST_ENTRY_ID")
 	testVaultId = os.Getenv("TEST_VAULT_ID")
 
 	err := setupTestClient()
