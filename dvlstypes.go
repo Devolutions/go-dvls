@@ -216,7 +216,8 @@ const (
 type ServerConnectionSubType string
 
 const (
-	ServerConnectionSubTypeDefault ServerConnectionSubType = "Default"
+	ServerConnectionSubTypeDefault     ServerConnectionSubType = "Default"
+	ServerConnectionSubTypeCertificate ServerConnectionSubType = "Certificate"
 )
 
 type VaultVisibility int
