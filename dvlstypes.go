@@ -234,3 +234,10 @@ const (
 	VaultSecurityLevelStandard VaultSecurityLevel = 0
 	VaultSecurityLevelHigh     VaultSecurityLevel = 1
 )
+
+type EntryCertificateDataMode int
+
+const (
+	EntryCertificateDataModeURL  EntryCertificateDataMode = 3
+	EntryCertificateDataModeFile EntryCertificateDataMode = 2
+)

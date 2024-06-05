@@ -265,10 +265,13 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 
 // Update updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
-	_, err := c.Get(entry.ID)
+	oldEntry, err := c.Get(entry.ID)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	}
+
+	entry.data.Mode = oldEntry.data.Mode
+	entry.data.FileSize = oldEntry.data.FileSize
 
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
 	if err != nil {
@@ -310,4 +313,9 @@ func (c *EntryCertificateService) Delete(entryId string) error {
 	}
 
 	return nil
+}
+
+// GetDataMode returns the data mode of the EntryCertificate. Can be either EntryCertificateDataModeURL or EntryCertificateDataModeFile.
+func (c EntryCertificate) GetDataMode() EntryCertificateDataMode {
+	return EntryCertificateDataMode(c.data.Mode)
 }
