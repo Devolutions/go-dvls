@@ -216,8 +216,14 @@ const (
 type ServerConnectionSubType string
 
 const (
-	ServerConnectionSubTypeDefault     ServerConnectionSubType = "Default"
-	ServerConnectionSubTypeCertificate ServerConnectionSubType = "Certificate"
+	ServerConnectionSubTypeDefault          ServerConnectionSubType = "Default"
+	ServerConnectionSubTypeCertificate      ServerConnectionSubType = "Certificate"
+	ServerConnectionSubTypeMicrosoftEdge    ServerConnectionSubType = "Edge"
+	ServerConnectionSubTypeFirefox          ServerConnectionSubType = "FireFox"
+	ServerConnectionSubTypeGoogleChrome     ServerConnectionSubType = "GoogleChrome"
+	ServerConnectionSubTypeInternetExplorer ServerConnectionSubType = "IE"
+	ServerConnectionSubTypeOpera            ServerConnectionSubType = "Opera"
+	ServerConnectionSubTypeAppleSafari      ServerConnectionSubType = "Safari"
 )
 
 type VaultVisibility int
