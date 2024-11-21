@@ -11,8 +11,9 @@ const (
 )
 
 type Entries struct {
-	UserCredential *EntryUserCredentialService
 	Certificate    *EntryCertificateService
+	UserCredential *EntryUserCredentialService
+	Website        *EntryWebsiteService
 }
 
 func keywordsToSlice(kw string) []string {

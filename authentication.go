@@ -115,6 +115,7 @@ func NewClient(username string, password string, baseUri string) (Client, error)
 	client.Entries = &Entries{
 		UserCredential: (*EntryUserCredentialService)(&client.common),
 		Certificate:    (*EntryCertificateService)(&client.common),
+		Website:        (*EntryWebsiteService)(&client.common),
 	}
 	client.Vaults = (*Vaults)(&client.common)
 

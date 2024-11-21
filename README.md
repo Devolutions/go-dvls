@@ -11,7 +11,7 @@ Heavily based on the information found on the [Devolutions.Server](https://githu
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
 - Add the import `import "github.com/Devolutions/go-dvls"`
-- Setup the client (we recommend using an [Application ID](https://helpserver.devolutions.net/webinterface_applications.html?q=application+id))
+- Setup the client (we recommend using an [Application ID](https://docs.devolutions.net/server/web-interface/administration/security-management/applications/))
 ``` go
 package main
 
