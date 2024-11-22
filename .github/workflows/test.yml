@@ -73,10 +73,11 @@ jobs:
           TEST_USER: ${{ secrets.TEST_USER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_INSTANCE: ${{ secrets.TEST_INSTANCE }}
-          TEST_USER_ENTRY_ID: ${{ secrets.TEST_USER_ENTRY_ID }}
+          TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
           TEST_CERTIFICATE_ENTRY_ID: ${{ secrets.TEST_CERTIFICATE_ENTRY_ID }}
           TEST_CERTIFICATE_FILE_PATH: '${{ runner.temp }}/test.p12'
-          TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
+          TEST_HOST_ENTRY_ID: ${{ secrets.TEST_HOST_ENTRY_ID }}
+          TEST_USER_ENTRY_ID: ${{ secrets.TEST_USER_ENTRY_ID }}
           TEST_WEBSITE_ENTRY_ID: ${{ secrets.TEST_WEBSITE_ENTRY_ID }}
         with:
           github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}

@@ -7,10 +7,10 @@ import (
 	"net/url"
 )
 
-type EntryWebsiteService service
+type EntryHostService service
 
-// EntryWebsite represents a website entry in DVLS
-type EntryWebsite struct {
+// EntryHost represents a host entry in DVLS
+type EntryHost struct {
 	ID                string                  `json:"id,omitempty"`
 	VaultId           string                  `json:"repositoryId"`
 	EntryName         string                  `json:"name"`
@@ -21,11 +21,11 @@ type EntryWebsite struct {
 	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
 	Tags              []string                `json:"keywords,omitempty"`
 
-	WebsiteDetails EntryWebsiteAuthDetails `json:"data"`
+	HostDetails EntryHostAuthDetails `json:"data"`
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (e EntryWebsite) MarshalJSON() ([]byte, error) {
+func (e EntryHost) MarshalJSON() ([]byte, error) {
 	raw := struct {
 		ID           string `json:"id,omitempty"`
 		RepositoryId string `json:"repositoryId"`
@@ -61,7 +61,7 @@ func (e EntryWebsite) MarshalJSON() ([]byte, error) {
 	raw.ConnectionSubType = e.ConnectionSubType
 	raw.ConnectionType = e.ConnectionType
 	raw.Name = e.EntryName
-	sensitiveJson, err := json.Marshal(e.WebsiteDetails)
+	sensitiveJson, err := json.Marshal(e.HostDetails)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal sensitive data. error: %w", err)
 	}
@@ -77,7 +77,7 @@ func (e EntryWebsite) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements the json.Unmarshaler interface.
-func (e *EntryWebsite) UnmarshalJSON(d []byte) error {
+func (e *EntryHost) UnmarshalJSON(d []byte) error {
 	raw := struct {
 		ID                string                  `json:"id"`
 		Description       string                  `json:"description"`
@@ -107,35 +107,32 @@ func (e *EntryWebsite) UnmarshalJSON(d []byte) error {
 	e.Tags = keywordsToSlice(raw.Keywords)
 
 	if len(raw.Data) > 0 {
-		if err := json.Unmarshal(raw.Data, &e.WebsiteDetails); err != nil {
-			return fmt.Errorf("failed to unmarshal website details: %w", err)
+		if err := json.Unmarshal(raw.Data, &e.HostDetails); err != nil {
+			return fmt.Errorf("failed to unmarshal host details: %w", err)
 		}
 	}
 
 	return nil
 }
 
-// EntryWebsiteAuthDetails represents website-specific fields
-type EntryWebsiteAuthDetails struct {
-	Username              string
-	Password              *string
-	URL                   string
-	WebBrowserApplication int
+// EntryHostAuthDetails represents host-specific fields
+type EntryHostAuthDetails struct {
+	Username string
+	Password *string
+	Host     string
 }
 
 // MarshalJSON implements the json.Marshaler interface.
-func (s EntryWebsiteAuthDetails) MarshalJSON() ([]byte, error) {
+func (s EntryHostAuthDetails) MarshalJSON() ([]byte, error) {
 	raw := struct {
-		AutoFillLogin         bool   `json:"AutoFillLogin"`
-		AutoSubmit            bool   `json:"AutoSubmit"`
-		AutomaticRefreshTime  int    `json:"AutomaticRefreshTime"`
-		ChromeProxyType       int    `json:"ChromeProxyType"`
-		CustomJavaScript      string `json:"CustomJavaScript"`
-		Host                  string `json:"Host"`
-		URL                   string `json:"URL"`
-		Username              string `json:"Username"`
-		WebBrowserApplication int    `json:"WebBrowserApplication"`
-		PasswordItem          struct {
+		AutoFillLogin        bool   `json:"AutoFillLogin"`
+		AutoSubmit           bool   `json:"AutoSubmit"`
+		AutomaticRefreshTime int    `json:"AutomaticRefreshTime"`
+		ChromeProxyType      int    `json:"ChromeProxyType"`
+		CustomJavaScript     string `json:"CustomJavaScript"`
+		Host                 string `json:"Host"`
+		UserName             string `json:"UserName"`
+		PasswordItem         struct {
 			HasSensitiveData bool   `json:"HasSensitiveData"`
 			SensitiveData    string `json:"SensitiveData"`
 		} `json:"PasswordItem"`
@@ -151,9 +148,8 @@ func (s EntryWebsiteAuthDetails) MarshalJSON() ([]byte, error) {
 		raw.PasswordItem.HasSensitiveData = false
 	}
 
-	raw.Username = s.Username
-	raw.URL = s.URL
-	raw.WebBrowserApplication = s.WebBrowserApplication
+	raw.UserName = s.Username
+	raw.Host = s.Host
 
 	secretJson, err := json.Marshal(raw)
 	if err != nil {
@@ -163,26 +159,26 @@ func (s EntryWebsiteAuthDetails) MarshalJSON() ([]byte, error) {
 	return secretJson, nil
 }
 
-// GetWebsiteDetails returns entry with the entry.WebsiteDetails.Password field.
-func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsite, error) {
+// GetHostDetails returns entry with the entry.HostDetails.Password field.
+func (c *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
 	var respData struct {
 		Data string `json:"data"`
 	}
 
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
 	if err != nil {
-		return EntryWebsite{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
 	resp, err := c.client.Request(reqUrl, http.MethodPost, nil)
 	if err != nil {
-		return EntryWebsite{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
+		return EntryHost{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryWebsite{}, err
+		return EntryHost{}, err
 	}
 
 	if err := json.Unmarshal(resp.Response, &respData); err != nil {
-		return EntryWebsite{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
 	var sensitiveDataResponse struct {
@@ -195,43 +191,44 @@ func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsit
 	}
 
 	if err := json.Unmarshal([]byte(respData.Data), &sensitiveDataResponse); err != nil {
-		return EntryWebsite{}, fmt.Errorf("failed to unmarshal inner data. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to unmarshal inner data. error: %w", err)
 	}
 
 	if sensitiveDataResponse.Data.PasswordItem.HasSensitiveData {
-		entry.WebsiteDetails.Password = sensitiveDataResponse.Data.PasswordItem.SensitiveData
+		entry.HostDetails.Password = sensitiveDataResponse.Data.PasswordItem.SensitiveData
 	} else {
-		entry.WebsiteDetails.Password = nil
+		entry.HostDetails.Password = nil
 	}
 
 	return entry, nil
 }
 
-// Get returns a single Entry specified by entryId. Call GetWebsiteDetails with
+// Get returns a single Entry specified by entryId. Call GetHostDetails with
 // the returned Entry to fetch the password.
-func (s *EntryWebsiteService) Get(entryId string) (EntryWebsite, error) {
+func (s *EntryHostService) Get(entryId string) (EntryHost, error) {
 	var respData struct {
-		Data EntryWebsite `json:"data"`
+		Data EntryHost `json:"data"`
 	}
 
 	reqUrl, err := url.JoinPath(s.client.baseUri, entryEndpoint, entryId)
 	if err != nil {
-		return EntryWebsite{}, fmt.Errorf("failed to build entry url: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := s.client.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return EntryWebsite{}, fmt.Errorf("error fetching entry: %w", err)
+		return EntryHost{}, fmt.Errorf("error fetching entry: %w", err)
 	}
+
 	if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryWebsite{}, err
+		return EntryHost{}, err
 	}
 	if resp.Response == nil {
-		return EntryWebsite{}, fmt.Errorf("response body is nil for request to %s", reqUrl)
+		return EntryHost{}, fmt.Errorf("response body is nil for request to %s", reqUrl)
 	}
 
 	if err := json.Unmarshal(resp.Response, &respData); err != nil {
-		return EntryWebsite{}, fmt.Errorf("failed to unmarshal response: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
 	return respData.Data, nil
