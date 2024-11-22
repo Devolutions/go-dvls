@@ -13,6 +13,7 @@ const (
 type Entries struct {
 	Certificate    *EntryCertificateService
 	Host           *EntryHostService
+	SSH            *EntrySSHService
 	UserCredential *EntryUserCredentialService
 	Website        *EntryWebsiteService
 }

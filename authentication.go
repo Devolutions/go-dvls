@@ -117,6 +117,7 @@ func NewClient(username string, password string, baseUri string) (Client, error)
 		Certificate:    (*EntryCertificateService)(&client.common),
 		Website:        (*EntryWebsiteService)(&client.common),
 		Host:           (*EntryHostService)(&client.common),
+		SSH:            (*EntrySSHService)(&client.common),
 	}
 	client.Vaults = (*Vaults)(&client.common)
 

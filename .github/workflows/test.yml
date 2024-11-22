@@ -77,6 +77,8 @@ jobs:
           TEST_CERTIFICATE_ENTRY_ID: ${{ secrets.TEST_CERTIFICATE_ENTRY_ID }}
           TEST_CERTIFICATE_FILE_PATH: '${{ runner.temp }}/test.p12'
           TEST_HOST_ENTRY_ID: ${{ secrets.TEST_HOST_ENTRY_ID }}
+          TEST_SSH_KEY_ENTRY_ID: ${{ secrets.TEST_SSH_KEY_ENTRY_ID }}
+          TEST_SSH_PASSWORD_ENTRY_ID: ${{ secrets.TEST_SSH_PASSWORD_ENTRY_ID }}
           TEST_USER_ENTRY_ID: ${{ secrets.TEST_USER_ENTRY_ID }}
           TEST_WEBSITE_ENTRY_ID: ${{ secrets.TEST_WEBSITE_ENTRY_ID }}
         with:
