@@ -7,8 +7,9 @@ import (
 )
 
 var (
-	testWebsiteEntryId string
-	testWebsiteEntry   EntryWebsite = EntryWebsite{
+	testWebsiteEntryId  string
+	testWebsitePassword              = "testpass123"
+	testWebsiteEntry    EntryWebsite = EntryWebsite{
 		Description:       "Test website description",
 		EntryName:         "TestWebsite",
 		ConnectionType:    ServerConnectionWebBrowser,
@@ -22,8 +23,6 @@ const (
 	testWebsiteURL      string = "https://test.example.com"
 	testWebsiteBrowser  string = "GoogleChrome"
 )
-
-var testWebsitePassword = "testpass123"
 
 func Test_EntryWebsite(t *testing.T) {
 	testWebsiteEntryId = os.Getenv("TEST_WEBSITE_ENTRY_ID")
