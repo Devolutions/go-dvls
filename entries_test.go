@@ -8,12 +8,11 @@ import (
 var (
 	testNewEntry Entry
 	testEntry    Entry = Entry{
-		Description:       "Test description",
-		EntryName:         "TestK8sSecret",
-		ConnectionType:    ServerConnectionCredential,
-		ConnectionSubType: ServerConnectionSubTypeDefault,
-		Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
-		Credentials:       NewEntryCredentials("TestK8s", "TestK8sPassword"),
+		Description: "Test description",
+		EntryName:   "TestK8sSecret",
+		Type:        "Credential",
+		Tags:        []string{"Test tag 1", "Test tag 2", "testtag"},
+		Credentials: EntryCredentials{"TestK8s", "TestK8sPassword"},
 	}
 )
 
@@ -22,7 +21,6 @@ func Test_Entries(t *testing.T) {
 	testEntry.VaultId = testVaultId
 
 	t.Run("GetEntry", test_GetEntry)
-	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
 	t.Run("NewEntry", test_NewEntry)
 	t.Run("UpdateEntry", test_UpdateEntry)
 	t.Run("DeleteEntry", test_DeleteEntry)
@@ -31,30 +29,18 @@ func Test_Entries(t *testing.T) {
 func test_GetEntry(t *testing.T) {
 	testGetEntry := testEntry
 
-	testGetEntry.Credentials = EntryCredentials{
-		Username: testEntry.Credentials.Username,
-	}
-	entry, err := testClient.GetEntry(testGetEntry.ID)
+	entry, err := testClient.GetEntry(testVaultId, testGetEntry.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testGetEntry.ModifiedDate = entry.ModifiedDate
+	testGetEntry.ModifiedOn = entry.ModifiedOn
+	testGetEntry.ModifiedBy = entry.ModifiedBy
+	testGetEntry.CreatedOn = entry.CreatedOn
+	testGetEntry.CreatedBy = entry.CreatedBy
 
 	if !reflect.DeepEqual(entry, testGetEntry) {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testGetEntry, entry)
-	}
-}
-
-func test_GetEntryCredentialsPassword(t *testing.T) {
-	testSecret := testEntry.Credentials
-	secret, err := testClient.GetEntryCredentialsPassword(testEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(testSecret, secret.Credentials) {
-		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret.Credentials)
 	}
 }
 
@@ -69,7 +55,7 @@ func test_NewEntry(t *testing.T) {
 	}
 
 	testNewEntry.ID = entry.ID
-	testNewEntry.ModifiedDate = entry.ModifiedDate
+	testNewEntry.ModifiedOn = entry.ModifiedOn
 	testNewEntry.Tags = entry.Tags
 
 	if !reflect.DeepEqual(entry, testNewEntry) {
@@ -82,14 +68,14 @@ func test_NewEntry(t *testing.T) {
 func test_UpdateEntry(t *testing.T) {
 	testUpdatedEntry := testNewEntry
 	testUpdatedEntry.EntryName = "TestK8sUpdatedEntry"
-	testUpdatedEntry.Credentials = NewEntryCredentials("TestK8sUpdatedUser", "TestK8sUpdatedPassword")
+	testUpdatedEntry.Credentials = EntryCredentials{"TestK8sUpdatedUser", "TestK8sUpdatedPassword"}
 
 	entry, err := testClient.UpdateEntry(testUpdatedEntry)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	testUpdatedEntry.ModifiedDate = entry.ModifiedDate
+	testUpdatedEntry.ModifiedOn = entry.ModifiedOn
 	testUpdatedEntry.Tags = entry.Tags
 
 	if !reflect.DeepEqual(entry, testUpdatedEntry) {

@@ -80,141 +80,14 @@ const (
 	ServerLoginOutsideValidUsageTimePeriod
 )
 
-//go:generate stringer -type=ServerConnectionType -trimprefix ServerConnection
-type ServerConnectionType uint8
+type EntryType string
 
 const (
-	ServerConnectionUndefined ServerConnectionType = iota
-	ServerConnectionRDPConfigured
-	ServerConnectionRDPFilename
-	ServerConnectionCommandLine
-	ServerConnectionVNC
-	ServerConnectionWebBrowser
-	ServerConnectionLogMeIn
-	ServerConnectionTeamViewer
-	ServerConnectionPutty
-	ServerConnectionFtp
-	ServerConnectionVirtualPC
-	ServerConnectionRadmin
-	ServerConnectionDameware
-	ServerConnectionVMWare
-	ServerConnectionPCAnywhere
-	ServerConnectionICA
-	ServerConnectionXWindow
-	ServerConnectionHyperV
-	ServerConnectionAddOn
-	ServerConnectionRemoteAssistance
-	ServerConnectionVPN
-	ServerConnectionVirtualBox
-	ServerConnectionVMRC
-	ServerConnectionXenServer
-	ServerConnectionWindowsVirtualPC
-	ServerConnectionGroup
-	ServerConnectionCredential
-	ServerConnectionHpRgs
-	ServerConnectionDesktone
-	ServerConnectionApplicationTool
-	ServerConnectionSessionTool
-	ServerConnectionContact
-	ServerConnectionDataEntry
-	ServerConnectionDataReport
-	ServerConnectionAgent
-	ServerConnectionComputer
-	ServerConnectionDropBox
-	ServerConnectionS3
-	ServerConnectionAzureStorage
-	ServerConnectionCitrixWeb
-	ServerConnectionPowerShell
-	ServerConnectionHostSessionTool
-	ServerConnectionShortcut
-	ServerConnectionIntelAMT
-	ServerConnectionAzure
-	ServerConnectionDocument
-	ServerConnectionVMWareConsole
-	ServerConnectionInventoryReport
-	ServerConnectionSkyDrive
-	ServerConnectionScreenConnect
-	ServerConnectionAzureTableStorage
-	ServerConnectionAzureQueueStorage
-	ServerConnectionTemplateGroup
-	ServerConnectionHost
-	ServerConnectionDatabase
-	ServerConnectionCustomer
-	ServerConnectionADConsole
-	ServerConnectionAws
-	ServerConnectionSNMPReport
-	ServerConnectionSync
-	ServerConnectionGateway
-	ServerConnectionPlayList
-	ServerConnectionTerminalConsole
-	ServerConnectionPSExec
-	ServerConnectionAppleRemoteDesktop
-	ServerConnectionSpiceworks
-	ServerConnectionDeskRoll
-	ServerConnectionSecureCRT
-	ServerConnectionIterm
-	ServerConnectionSheet
-	ServerConnectionSplunk
-	ServerConnectionPortForward
-	ServerConnectionTeamViewerConsole
-	ServerConnectionScreenHero
-	ServerConnectionTelnet
-	ServerConnectionSerial
-	ServerConnectionSSHTunnel
-	ServerConnectionSSHShell
-	ServerConnectionResetPassword
-	ServerConnectionWayk
-	ServerConnectionControlUp
-	ServerConnectionDataSource
-	ServerConnectionChromeRemoteDesktop
-	ServerConnectionRDCommander
-	ServerConnectionIDrac
-	ServerConnectionIlo
-	ServerConnectionWebDav
-	ServerConnectionBeyondTrustPasswordSafeConsole
-	ServerConnectionDevolutionsProxy
-	ServerConnectionFtpNative
-	ServerConnectionPowerShellRemoteConsole
-	ServerConnectionProxyTunnel
-	ServerConnectionRoot
-	ServerConnectionBeyondTrustPasswordSafe
-	ServerConnectionFileExplorer
-	ServerConnectionScp
-	ServerConnectionSftp
-	ServerConnectionAzureBlobStorage
-	ServerConnectionTFtp
-	ServerConnectionGoToAssist
-	ServerConnectionIPTable
-	ServerConnectionHub
-	ServerConnectionGoogleDrive
-	ServerConnectionGoogleCloud
-	ServerConnectionNoVNC
-	ServerConnectionSplashtop
-	ServerConnectionJumpDesktop
-	ServerConnectionBoxNet
-	ServerConnectionMSPAnywhere
-	ServerConnectionRepository
-	ServerConnectionCyberArkPSM
-	ServerConnectionCloudBerryRemoteAssistant
-	ServerConnectionITGlue
-	ServerConnectionSmartFolder
-	ServerConnectionCyberArkJump
-	ServerConnectionWindowsAdminCenter
-	ServerConnectionDevolutionsGateway
-	ServerConnectionWaykDenConsole
-	ServerConnectionRDGatewayConsole
-	ServerConnectionCyberArkDashboard
-	ServerConnectionDVLSPamDashboard
-	ServerConnectionSMB
-	ServerConnectionAppleRemoteManagement
-	ServerConnectionRustDesk
-	ServerConnectionPAM
-	ServerConnectionITManager
-	ServerConnectionCustomImage
+	EntryTypeCredential EntryType = "Credential"
 )
 
-type ServerConnectionSubType string
+type EntrySubType string
 
 const (
-	ServerConnectionSubTypeDefault ServerConnectionSubType = "Default"
+	EntrySubTypeDefault EntrySubType = ""
 )

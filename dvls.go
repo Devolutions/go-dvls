@@ -20,6 +20,8 @@ type RequestError struct {
 	Err error
 }
 
+const defaultContentType string = "application/json"
+
 func (e RequestError) Error() string {
 	return fmt.Sprintf("error while submitting request on url %s. error: %s", e.Url, e.Err.Error())
 }
@@ -31,35 +33,37 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader) (Respo
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status. error: %w", err), Url: url}
 	}
 	if !islogged {
-		err := c.refreshToken()
+		err := c.login()
 		if err != nil {
 			return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token. error: %w", err), Url: url}
 		}
 	}
 
-	resp, err := c.rawRequest(url, reqMethod, reqBody)
+	resp, err := c.rawRequest(url, reqMethod, defaultContentType, reqBody)
 	if err != nil {
 		return Response{}, err
 	}
 	return resp, nil
 }
 
-func (c *Client) rawRequest(url string, reqMethod string, reqBody io.Reader) (Response, error) {
+func (c *Client) rawRequest(url string, reqMethod string, contentType string, reqBody io.Reader) (Response, error) {
 	req, err := http.NewRequest(reqMethod, url, reqBody)
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to make request. error: %w", err), Url: url}
 	}
 
-	req.Header.Add("Content-Type", "application/json")
+	req.Header.Add("Content-Type", contentType)
 	req.Header.Add("tokenId", c.credential.token)
+
+	// TODO: remove this on next server release
+	req.Header.Add("X-Forwarded-For", "null")
 
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("error while submitting request. error: %w", err), Url: url}
 	} else if resp.StatusCode != http.StatusOK {
-		return Response{}, &RequestError{Err: fmt.Errorf("unexpected status code %d", resp.StatusCode), Url: url}
+		return Response{}, &RequestError{Err: fmt.Errorf("unexpected status code %s", resp.Status), Url: url}
 	}
-
 	var response Response
 	response.Response, err = io.ReadAll(resp.Body)
 	if err != nil {
