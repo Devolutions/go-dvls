@@ -100,3 +100,7 @@ func (r Response) CheckRespSaveResult() error {
 	}
 	return nil
 }
+
+func (c Client) Definition() string {
+	return "DVLS"
+}

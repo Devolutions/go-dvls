@@ -23,6 +23,12 @@ type Entries struct {
 	Website     *EntryWebsiteService
 }
 
+// EntryCredentialsData interface for all credential types
+type EntryCredentialsData interface {
+	GetSubType() string
+}
+
+// Entry represents an entry in the vault
 type Entry struct {
 	ID          string      `json:"id,omitempty"`
 	VaultId     string      `json:"vaultId"`
@@ -37,13 +43,170 @@ type Entry struct {
 	SubType     string      `json:"subType"`
 	Tags        []string    `json:"tags,omitempty"`
 
-	Credentials EntryCredentials `json:"data,omitempty"`
+	// The actual credentials data - only one will be populated based on SubType
+	credentialsData EntryCredentialsData `json:"-"`
 }
 
-// EntryCredentials represents an Entry Credentials fields.
-type EntryCredentials struct {
+// MarshalJSON customizes how Entry is converted to JSON
+func (e Entry) MarshalJSON() ([]byte, error) {
+	type EntryAlias Entry // Avoid infinite recursion
+
+	// Create a struct that will be marshaled to JSON
+	aliasValue := struct {
+		EntryAlias
+		Data interface{} `json:"data,omitempty"`
+	}{
+		EntryAlias: EntryAlias(e),
+		Data:       e.credentialsData,
+	}
+
+	return json.Marshal(aliasValue)
+}
+
+// UnmarshalJSON customizes how JSON is converted to Entry
+func (e *Entry) UnmarshalJSON(data []byte) error {
+	type EntryAlias Entry
+
+	// Create a struct that will hold the unmarshaled data
+	aliasValue := struct {
+		EntryAlias
+		Data json.RawMessage `json:"data,omitempty"`
+	}{}
+
+	if err := json.Unmarshal(data, &aliasValue); err != nil {
+		return err
+	}
+
+	// Copy all the fields except credentialsData
+	*e = Entry(aliasValue.EntryAlias)
+
+	// If no data field, return early
+	if len(aliasValue.Data) == 0 {
+		return nil
+	}
+
+	// Unmarshal into the appropriate type based on SubType
+	var err error
+	switch e.SubType {
+	case "":
+	case "Default":
+		var creds DefaultCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "PrivateKey":
+		var creds PrivateKeyCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "AccessCode":
+		var creds AccessCodeCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "ApiKey":
+		var creds ApiKeyCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "AzureServicePrincipal":
+		var creds AzureServicePrincipalCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "ConnectionString":
+		var creds ConnectionStringCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	case "Passkey":
+		var creds PasskeyCredentials
+		err = json.Unmarshal(aliasValue.Data, &creds)
+		e.credentialsData = &creds
+	default:
+		return fmt.Errorf("unknown credential subtype: %s", e.SubType)
+	}
+
+	return err
+}
+
+// Helper methods to get and set specific credential types
+func (e *Entry) GetCredentials() EntryCredentialsData {
+	return e.credentialsData
+}
+
+func (e *Entry) SetCredentials(creds EntryCredentialsData) {
+	e.credentialsData = creds
+	e.SubType = creds.GetSubType()
+}
+
+// Define all the credential types with their specific fields
+
+// DefaultCredentials represents the Default credential subtype
+type DefaultCredentials struct {
 	Username string `json:"username,omitempty"`
 	Password string `json:"password,omitempty"`
+	Domain   string `json:"domain,omitempty"`
+}
+
+func (c *DefaultCredentials) GetSubType() string {
+	return "Default"
+}
+
+// PrivateKeyCredentials represents the PrivateKey credential subtype
+type PrivateKeyCredentials struct {
+	PrivateKeyData             string `json:"privateKeyData,omitempty"`
+	PublicKeyData              string `json:"publicKeyData,omitempty"`
+	PrivateKeyOverridePassword string `json:"privateKeyOverridePassword,omitempty"`
+	PrivateKeyPassPhrase       string `json:"privateKeyPassPhrase,omitempty"`
+}
+
+func (c *PrivateKeyCredentials) GetSubType() string {
+	return "PrivateKey"
+}
+
+// AccessCodeCredentials represents the AccessCode credential subtype
+type AccessCodeCredentials struct {
+	Password string `json:"password,omitempty"`
+}
+
+func (c *AccessCodeCredentials) GetSubType() string {
+	return "AccessCode"
+}
+
+// ApiKeyCredentials represents the ApiKey credential subtype
+type ApiKeyCredentials struct {
+	ApiId    string `json:"apiId,omitempty"`
+	ApiKey   string `json:"apiKey,omitempty"`
+	TenantId string `json:"tenantId,omitempty"`
+}
+
+func (c *ApiKeyCredentials) GetSubType() string {
+	return "ApiKey"
+}
+
+// AzureServicePrincipalCredentials represents the AzureServicePrincipal credential subtype
+type AzureServicePrincipalCredentials struct {
+	ClientId     string `json:"clientId,omitempty"`
+	ClientSecret string `json:"clientSecret,omitempty"`
+	TenantId     string `json:"tenantId,omitempty"`
+}
+
+func (c *AzureServicePrincipalCredentials) GetSubType() string {
+	return "AzureServicePrincipal"
+}
+
+// ConnectionStringCredentials represents the ConnectionString credential subtype
+type ConnectionStringCredentials struct {
+	ConnectionString string `json:"connectionString,omitempty"`
+}
+
+func (c *ConnectionStringCredentials) GetSubType() string {
+	return "ConnectionString"
+}
+
+// PasskeyCredentials represents the Passkey credential subtype
+type PasskeyCredentials struct {
+	PasskeyPrivateKey string `json:"passkeyPrivateKey,omitempty"`
+	PasskeyRpID       string `json:"passkeyRpID,omitempty"`
+}
+
+func (c *PasskeyCredentials) GetSubType() string {
+	return "Passkey"
 }
 
 func entryReplacer(vaultId string, entryId string) string {
