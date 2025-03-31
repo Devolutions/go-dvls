@@ -34,9 +34,9 @@ func Test_EntryCertificate(t *testing.T) {
 	expiration := time.Date(2099, 1, 1, 0, 0, 0, 0, location)
 	testCertificateEntry.Expiration = expiration
 
-	t.Run("GetEntry", test_GetCertificateEntry)
 	t.Run("NewCertificateFile", test_NewCertificateEntryFile)
 	t.Run("NewCertificateURL", test_NewCertificateEntryURL)
+	t.Run("GetEntry", test_GetCertificateEntry)
 	t.Run("UpdateEntry", test_UpdateCertificateEntry)
 	t.Run("DeleteEntry", test_DeleteCertificateEntry)
 }
@@ -150,6 +150,7 @@ func test_NewCertificateEntryURL(t *testing.T) {
 	if !reflect.DeepEqual(entry, newEntry) {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", entry, newEntry)
 	}
+	testCertificateEntry = entry
 }
 
 func test_UpdateCertificateEntry(t *testing.T) {
