@@ -6,213 +6,74 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 type EntryUserCredentialService service
 
+const (
+	entryPublicEndpoint string = "/api/v1/vault/{vaultId}/entry/{id}"
+	EntryTypeCredential string = "Credential"
+	EntrySubTypeDefault string = "Default"
+)
+
 // EntryUserCredential represents a DVLS entry/connection.
 type EntryUserCredential struct {
-	ID                string                  `json:"id,omitempty"`
-	VaultId           string                  `json:"repositoryId"`
-	EntryName         string                  `json:"name"`
-	Description       string                  `json:"description"`
-	EntryFolderPath   string                  `json:"group"`
-	ModifiedDate      *ServerTime             `json:"modifiedDate,omitempty"`
-	ConnectionType    ServerConnectionType    `json:"connectionType"`
-	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
-	Tags              []string                `json:"keywords,omitempty"`
+	ID          string      `json:"id,omitempty"`
+	VaultId     string      `json:"vaultId"`
+	EntryName   string      `json:"name"`
+	Description string      `json:"description"`
+	Path        string      `json:"path"`
+	ModifiedOn  *ServerTime `json:"modifiedOn,omitempty"`
+	ModifiedBy  string      `json:"modifiedBy,omitempty"`
+	CreatedOn   *ServerTime `json:"createdOn,omitempty"`
+	CreatedBy   string      `json:"createdBy,omitempty"`
+	Type        string      `json:"type"`
+	SubType     string      `json:"subType"`
+	Tags        []string    `json:"tags,omitempty"`
 
-	Credentials EntryUserAuthDetails `json:"data,omitempty"`
+	Credentials EntryCredentials `json:"data,omitempty"`
 }
 
-// MarshalJSON implements the json.Marshaler interface.
-func (e EntryUserCredential) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		Id           string `json:"id,omitempty"`
-		RepositoryId string `json:"repositoryId"`
-		Name         string `json:"name"`
-		Description  string `json:"description"`
-		Events       struct {
-			OpenCommentPrompt                        bool `json:"openCommentPrompt"`
-			CredentialViewedPrompt                   bool `json:"credentialViewedPrompt"`
-			TicketNumberIsRequiredOnCredentialViewed bool `json:"ticketNumberIsRequiredOnCredentialViewed"`
-			TicketNumberIsRequiredOnClose            bool `json:"ticketNumberIsRequiredOnClose"`
-			CredentialViewedCommentIsRequired        bool `json:"credentialViewedCommentIsRequired"`
-			TicketNumberIsRequiredOnOpen             bool `json:"ticketNumberIsRequiredOnOpen"`
-			CloseCommentIsRequired                   bool `json:"closeCommentIsRequired"`
-			OpenCommentPromptOnBrowserExtensionLink  bool `json:"openCommentPromptOnBrowserExtensionLink"`
-			CloseCommentPrompt                       bool `json:"closeCommentPrompt"`
-			OpenCommentIsRequired                    bool `json:"openCommentIsRequired"`
-			WarnIfAlreadyOpened                      bool `json:"warnIfAlreadyOpened"`
-		} `json:"events"`
-		Data              string                  `json:"data"`
-		Expiration        string                  `json:"expiration"`
-		CheckOutMode      int                     `json:"checkOutMode"`
-		Group             string                  `json:"group"`
-		ConnectionType    ServerConnectionType    `json:"connectionType"`
-		ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
-		Keywords          string                  `json:"keywords"`
-	}{}
-
-	raw.Id = e.ID
-	raw.Keywords = sliceToKeywords(e.Tags)
-	raw.Description = e.Description
-	raw.RepositoryId = e.VaultId
-	raw.Group = e.EntryFolderPath
-	raw.ConnectionSubType = e.ConnectionSubType
-	raw.ConnectionType = e.ConnectionType
-	raw.Name = e.EntryName
-	sensitiveJson, err := json.Marshal(e.Credentials)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal sensitive data. error: %w", err)
-	}
-
-	raw.Data = string(sensitiveJson)
-
-	entryJson, err := json.Marshal(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	return entryJson, nil
+// EntryCredentials represents an EntryUserCredential Credentials fields.
+type EntryCredentials struct {
+	Username string `json:"username,omitempty"`
+	Password string `json:"password,omitempty"`
 }
 
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (e *EntryUserCredential) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Data struct {
-			ID                string
-			Description       string
-			Name              string
-			Group             string
-			Username          string
-			ModifiedDate      *ServerTime
-			Keywords          string
-			RepositoryId      string
-			ConnectionType    ServerConnectionType
-			ConnectionSubType ServerConnectionSubType
-		}
-	}{}
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
-	}
-
-	e.ID = raw.Data.ID
-	e.EntryName = raw.Data.Name
-	e.ConnectionType = raw.Data.ConnectionType
-	e.ConnectionSubType = raw.Data.ConnectionSubType
-	e.ModifiedDate = raw.Data.ModifiedDate
-	e.Credentials.Username = raw.Data.Username
-	e.Description = raw.Data.Description
-	e.EntryFolderPath = raw.Data.Group
-	e.VaultId = raw.Data.RepositoryId
-
-	e.Tags = keywordsToSlice(raw.Data.Keywords)
-
-	return nil
+func entryReplacer(vaultId string, entryId string) string {
+	replacer := strings.NewReplacer("{vaultId}", vaultId, "{id}", entryId)
+	return replacer.Replace(entryPublicEndpoint)
 }
 
-// EntryUserAuthDetails represents an Entry User Authentication Details fields.
-type EntryUserAuthDetails struct {
-	Username string
-	Password *string
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (s EntryUserAuthDetails) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		AllowClipboard         bool    `json:"allowClipboard"`
-		CredentialConnectionId string  `json:"credentialConnectionId"`
-		PamCredentialId        string  `json:"pamCredentialId"`
-		PamCredentialName      string  `json:"pamCredentialName"`
-		CredentialMode         int     `json:"credentialMode"`
-		Credentials            *string `json:"credentials"`
-		Domain                 string  `json:"domain"`
-		MnemonicPassword       string  `json:"mnemonicPassword"`
-		PasswordItem           struct {
-			HasSensitiveData bool   `json:"hasSensitiveData"`
-			SensitiveData    string `json:"sensitiveData"`
-		} `json:"passwordItem"`
-		PromptForPassword bool   `json:"promptForPassword"`
-		UserName          string `json:"userName"`
-	}{}
-
-	if s.Password != nil {
-		raw.PasswordItem.HasSensitiveData = true
-		raw.PasswordItem.SensitiveData = *s.Password
-	}
-	raw.UserName = s.Username
-
-	secretJson, err := json.Marshal(raw)
-	if err != nil {
-		return nil, err
+// validateEntry checks if an EntryUserCredential has the required fields and valid type/subtype.
+func (c *EntryUserCredentialService) validateEntry(entry *EntryUserCredential) error {
+	if entry.VaultId == "" {
+		return fmt.Errorf("entry must have a VaultId")
 	}
 
-	return secretJson, nil
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (s *EntryUserAuthDetails) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Data string
-	}{}
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
+	if entry.Type != EntryTypeCredential {
+		return fmt.Errorf("unsupported entry type (%s). Only %s is supported", entry.Type, EntryTypeCredential)
 	}
 
-	if raw.Data != "" {
-		newRaw := struct {
-			Data struct {
-				Credentials struct {
-					Username string
-					Password string
-				}
-			}
-		}{}
-		err = json.Unmarshal([]byte(raw.Data), &newRaw)
-		if err != nil {
-			return err
-		}
-
-		s.Username = newRaw.Data.Credentials.Username
-		s.Password = &newRaw.Data.Credentials.Password
+	if entry.SubType == "" {
+		entry.SubType = EntrySubTypeDefault
+	} else if entry.SubType != EntrySubTypeDefault {
+		return fmt.Errorf("unsupported entry subtype (%s). Only %s is supported", entry.SubType, EntrySubTypeDefault)
 	}
 
 	return nil
 }
 
-// GetUserAuthDetails returns entry with the entry.Credentials.Password field.
-func (c *EntryUserCredentialService) GetUserAuthDetails(entry EntryUserCredential) (EntryUserCredential, error) {
-	var secret EntryUserAuthDetails
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
-	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("failed to build entry url. error: %w", err)
+// Get returns a single EntryUserCredential specified by entryId.
+func (c *EntryUserCredentialService) Get(vaultId string, entryId string) (EntryUserCredential, error) {
+	if entryId == "" || vaultId == "" {
+		return EntryUserCredential{}, fmt.Errorf("both entry ID and vault ID are required for deletion")
 	}
-
-	resp, err := c.client.Request(reqUrl, http.MethodPost, nil)
-	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryUserCredential{}, err
-	}
-
-	err = json.Unmarshal(resp.Response, &secret)
-	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
-	}
-
-	entry.Credentials = secret
-
-	return entry, nil
-}
-
-// Get returns a single Entry specified by entryId. Call GetEntryCredentialsPassword with
-// the returned Entry to fetch the password.
-func (c *EntryUserCredentialService) Get(entryId string) (EntryUserCredential, error) {
 	var entry EntryUserCredential
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
+	entryUri := entryReplacer(vaultId, entryId)
+
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
@@ -220,8 +81,6 @@ func (c *EntryUserCredentialService) Get(entryId string) (EntryUserCredential, e
 	resp, err := c.client.Request(reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("error while fetching entry. error: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryUserCredential{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
@@ -229,19 +88,25 @@ func (c *EntryUserCredentialService) Get(entryId string) (EntryUserCredential, e
 		return EntryUserCredential{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
+	entry.VaultId = vaultId
+	if entry.SubType == "" {
+		entry.SubType = EntrySubTypeDefault
+	}
+
 	return entry, nil
 }
 
 // New creates a new EntryUserCredential based on entry.
 func (c *EntryUserCredentialService) New(entry EntryUserCredential) (EntryUserCredential, error) {
-	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
-		return EntryUserCredential{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+	if err := c.validateEntry(&entry); err != nil {
+		return EntryUserCredential{}, err
 	}
 
 	entry.ID = ""
-	entry.ModifiedDate = nil
 
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
+	baseEntryEndpoint := strings.Replace(entryPublicEndpoint, "/{id}", "", 1)
+	entryUri := strings.Replace(baseEntryEndpoint, "{vaultId}", entry.VaultId, 1)
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
@@ -254,31 +119,36 @@ func (c *EntryUserCredentialService) New(entry EntryUserCredential) (EntryUserCr
 	resp, err := c.client.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("error while creating entry. error: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryUserCredential{}, err
 	}
-
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
-
 	return entry, nil
 }
 
-// Update updates an EntryUserCredential based on entry. Will replace all other fields whether included or not.
+// Update updates an EntryUserCredential based on entry.
 func (c *EntryUserCredentialService) Update(entry EntryUserCredential) (EntryUserCredential, error) {
-	if entry.ConnectionType != ServerConnectionCredential || entry.ConnectionSubType != ServerConnectionSubTypeDefault {
-		return EntryUserCredential{}, fmt.Errorf("unsupported entry type (%s %s). Only %s %s is supported", entry.ConnectionType, entry.ConnectionSubType, ServerConnectionCredential, ServerConnectionSubTypeDefault)
+	if err := c.validateEntry(&entry); err != nil {
+		return EntryUserCredential{}, err
 	}
-	_, err := c.Get(entry.ID)
+
+	if entry.ID == "" {
+		return EntryUserCredential{}, fmt.Errorf("entry ID is required for updates")
+	}
+
+	originalEntry, err := c.Get(entry.VaultId, entry.ID)
 	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("error while fetching entry. error: %w", err)
+		return EntryUserCredential{}, fmt.Errorf("failed to fetch original entry. error: %w", err)
 	}
 
-	entry.ModifiedDate = nil
+	if originalEntry.SubType != entry.SubType {
+		return EntryUserCredential{}, fmt.Errorf("entry subType cannot be changed")
+	}
 
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
+	entryUri := entryReplacer(entry.VaultId, entry.ID)
+
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
 		return EntryUserCredential{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
@@ -288,43 +158,35 @@ func (c *EntryUserCredentialService) Update(entry EntryUserCredential) (EntryUse
 		return EntryUserCredential{}, fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
+	_, err = c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("error while creating entry. error: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryUserCredential{}, err
+		return EntryUserCredential{}, fmt.Errorf("error while updating entry. error: %w", err)
 	}
 
-	err = json.Unmarshal(resp.Response, &entry)
+	entry, err = c.Get(entry.VaultId, entry.ID)
 	if err != nil {
-		return EntryUserCredential{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryUserCredential{}, fmt.Errorf("update succeeded but failed to fetch updated entry: %w", err)
 	}
 
 	return entry, nil
 }
 
-// Delete deletes an EntryUserCredential based on entryId.
-func (c *EntryUserCredentialService) Delete(entryId string) error {
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
-	if err != nil {
-		return fmt.Errorf("failed to delete entry url. error: %w", err)
+// Delete deletes an entry based on entry.
+func (c *EntryUserCredentialService) Delete(entry EntryUserCredential) error {
+	if entry.ID == "" || entry.VaultId == "" {
+		return fmt.Errorf("both entry ID and vault ID are required")
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodDelete, nil)
+	entryUri := entryReplacer(entry.VaultId, entry.ID)
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
+	if err != nil {
+		return fmt.Errorf("failed to build delete entry url. error: %w", err)
+	}
+
+	_, err = c.client.Request(reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting entry. error: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return err
 	}
 
 	return nil
-}
-
-// NewEntryUserAuthDetails returns an EntryUserAuthDetails with an initialised EntryUserAuthDetails.Password.
-func (c *EntryUserCredentialService) NewUserAuthDetails(username string, password string) EntryUserAuthDetails {
-	creds := EntryUserAuthDetails{
-		Username: username,
-		Password: &password,
-	}
-	return creds
 }

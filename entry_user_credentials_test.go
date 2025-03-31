@@ -1,117 +1,104 @@
 package dvls
 
 import (
-	"os"
 	"reflect"
 	"testing"
 )
 
 var (
-	testUserEntryId  string
-	testNewUserEntry EntryUserCredential
-	testUserEntry    EntryUserCredential = EntryUserCredential{
-		Description:       "Test description",
-		EntryName:         "TestK8sSecret",
-		ConnectionType:    ServerConnectionCredential,
-		ConnectionSubType: ServerConnectionSubTypeDefault,
-		Tags:              []string{"Test tag 1", "Test tag 2", "testtag"},
+	testUserEntry = EntryUserCredential{
+		ID:          "",
+		VaultId:     testVaultId,
+		EntryName:   "TestGoDvlsSecret",
+		Description: "Test description",
+		Type:        "Credential",
+		SubType:     "Default",
+		Tags:        []string{"testtag"},
+		Credentials: EntryCredentials{
+			Username: testEntryUsername,
+			Password: testEntryPassword,
+		},
 	}
 )
 
 const (
-	testEntryUsername string = "TestK8s"
-	testEntryPassword string = "TestK8sPassword"
+	testEntryUsername string = "Test"
+	testEntryPassword string = "TestPassword"
 )
 
 func Test_EntryUserCredentials(t *testing.T) {
-	testUserEntryId = os.Getenv("TEST_USER_ENTRY_ID")
-	testUserEntry.ID = testUserEntryId
-	testUserEntry.VaultId = testVaultId
-	testUserEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails(testEntryUsername, testEntryPassword)
-
-	t.Run("GetEntry", test_GetUserEntry)
 	t.Run("NewEntry", test_NewUserEntry)
-	t.Run("GetEntryCredentialsPassword", test_GetEntryCredentialsPassword)
-
+	t.Run("GetEntry", test_GetUserEntry)
 	t.Run("UpdateEntry", test_UpdateUserEntry)
 	t.Run("DeleteEntry", test_DeleteUserEntry)
 }
 
-func test_GetUserEntry(t *testing.T) {
-	testGetEntry := testUserEntry
-
-	testGetEntry.Credentials = EntryUserAuthDetails{
-		Username: testUserEntry.Credentials.Username,
-	}
-	entry, err := testClient.Entries.UserCredential.Get(testGetEntry.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testClient.Entries.UserCredential.Get(testGetEntry.ID)
-	testGetEntry.ModifiedDate = entry.ModifiedDate
-
-	if !reflect.DeepEqual(entry, testGetEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testGetEntry, entry)
-	}
-}
-
-func test_GetEntryCredentialsPassword(t *testing.T) {
-	testSecret := testUserEntry.Credentials
-	secret, err := testClient.Entries.UserCredential.GetUserAuthDetails(testUserEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if !reflect.DeepEqual(testSecret, secret.Credentials) {
-		t.Fatalf("fetched secret did not match test secret. Expected %#v, got %#v", testSecret, secret.Credentials)
-	}
+// Allowing accurate comparison by ignoring fields that differ due to server assignment.
+func NormalizeEntry(source, target *EntryUserCredential) {
+	target.ID = source.ID
+	target.ModifiedOn = source.ModifiedOn
+	target.ModifiedBy = source.ModifiedBy
+	target.CreatedOn = source.CreatedOn
+	target.CreatedBy = source.CreatedBy
 }
 
 func test_NewUserEntry(t *testing.T) {
-	testNewUserEntry = testUserEntry
-
-	testNewUserEntry.EntryName = "TestK8sNewEntry"
-
-	entry, err := testClient.Entries.UserCredential.New(testNewUserEntry)
+	testUserEntry.VaultId = testVaultId
+	newEntry, err := testClient.Entries.UserCredential.New(testUserEntry)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to create new entry: %v", err)
 	}
 
-	testNewUserEntry.ID = entry.ID
-	testNewUserEntry.ModifiedDate = entry.ModifiedDate
-	testNewUserEntry.Tags = entry.Tags
+	NormalizeEntry(&newEntry, &testUserEntry)
 
-	if !reflect.DeepEqual(entry, testNewUserEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testNewUserEntry, entry)
+	if !reflect.DeepEqual(&newEntry, &testUserEntry) {
+		t.Fatalf("Entries differ.\nGot:      %+v\nExpected: %+v", &newEntry, &testUserEntry)
+	}
+}
+
+func test_GetUserEntry(t *testing.T) {
+	entry, err := testClient.Entries.UserCredential.Get(testVaultId, testUserEntry.ID)
+	if err != nil {
+		t.Fatalf("Failed to get entry: %v", err)
 	}
 
-	testNewUserEntry = entry
+	NormalizeEntry(&entry, &testUserEntry)
+
+	if !reflect.DeepEqual(&entry, &testUserEntry) {
+		t.Fatalf("Entries differ.\nGot:      %+v\nExpected: %+v", &entry, &testUserEntry)
+	}
 }
 
 func test_UpdateUserEntry(t *testing.T) {
-	testUpdatedEntry := testNewUserEntry
-	testUpdatedEntry.EntryName = "TestK8sUpdatedEntry"
-	testUpdatedEntry.Credentials = testClient.Entries.UserCredential.NewUserAuthDetails("TestK8sUpdatedUser", "TestK8sUpdatedPassword")
+	testUpdatedEntry := testUserEntry
+	testUpdatedEntry.EntryName = "TestGoDvlsSecretUpdated"
+	testUpdatedEntry.Description = "Test description updated"
+	testUpdatedEntry.Credentials = EntryCredentials{
+		Username: "TestK8sUpdatedUser",
+		Password: "TestK8sUpdatedPassword",
+	}
 
-	entry, err := testClient.Entries.UserCredential.Update(testUpdatedEntry)
+	updatedEntry, err := testClient.Entries.UserCredential.Update(testUpdatedEntry)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to update entry: %v", err)
 	}
+	NormalizeEntry(&updatedEntry, &testUpdatedEntry)
 
-	testUpdatedEntry.ModifiedDate = entry.ModifiedDate
-	testUpdatedEntry.Tags = entry.Tags
-
-	if !reflect.DeepEqual(entry, testUpdatedEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testUpdatedEntry, entry)
+	if !reflect.DeepEqual(&updatedEntry, &testUpdatedEntry) {
+		t.Fatalf("Entries differ.\nGot:      %+v\nExpected: %+v", &updatedEntry, &testUpdatedEntry)
 	}
-
-	testNewUserEntry = entry
+	testUserEntry = updatedEntry
 }
 
 func test_DeleteUserEntry(t *testing.T) {
-	err := testClient.Entries.UserCredential.Delete(testNewUserEntry.ID)
+	err := testClient.Entries.UserCredential.Delete(testUserEntry)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("Failed to delete entry: %v", err)
+	}
+
+	// Verify it's gone by trying to retrieve it
+	_, err = testClient.Entries.UserCredential.Get(testVaultId, testUserEntry.ID)
+	if err == nil {
+		t.Fatalf("Entry still exists after deletion: %s", testUserEntry.ID)
 	}
 }

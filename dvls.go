@@ -74,9 +74,7 @@ func (c *Client) rawRequest(url string, reqMethod string, contentType string, re
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("error while submitting request. error: %w", err), Url: url}
 	}
-	defer resp.Body.Close()
 
-	// Check for unexpected status codes
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		return Response{}, &RequestError{Err: fmt.Errorf("unexpected status code %d", resp.StatusCode), Url: url}
 	}
@@ -86,22 +84,13 @@ func (c *Client) rawRequest(url string, reqMethod string, contentType string, re
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to read response body. error: %w", err), Url: url}
 	}
+	defer resp.Body.Close()
 
-	// If RawBody is true, return the raw response without further processing
-	if opts.RawBody {
-		return response, nil
-	}
-
-	// Handle empty response bodies for successful requests
-	if len(response.Response) == 0 {
-		response.Message = "Empty response (success)"
-		return response, nil
-	}
-
-	// Otherwise, unmarshal the response as JSON
-	err = json.Unmarshal(response.Response, &response)
-	if err != nil {
-		return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
+	if !opts.RawBody && len(response.Response) > 0 {
+		err = json.Unmarshal(response.Response, &response)
+		if err != nil {
+			return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
+		}
 	}
 
 	return response, nil
