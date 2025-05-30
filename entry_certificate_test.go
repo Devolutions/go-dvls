@@ -16,7 +16,7 @@ var (
 	testCertificateEntry        EntryCertificate = EntryCertificate{
 		VaultId:               testVaultId,
 		Name:                  "TestK8sCertificate",
-		Password:              testEntryPassword,
+		Password:              "TestK8sCertificatePassword",
 		Tags:                  []string{"test", "k8s"},
 		CertificateIdentifier: "test",
 	}
