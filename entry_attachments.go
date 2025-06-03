@@ -9,10 +9,10 @@ import (
 )
 
 type EntryAttachment struct {
-	ID            string `json:"id,omitempty"`
-	IDString      string `json:"idString"`
-	EntryID       string `json:"connectionID"`
-	EntryIDString string `json:"connectionIDString"`
+	Id            string `json:"id,omitempty"`
+	IdString      string `json:"idString"`
+	EntryId       string `json:"connectionID"`
+	EntryIdString string `json:"connectionIDString"`
 	Description   string `json:"description"`
 	FileName      string `json:"filename"`
 	IsPrivate     bool   `json:"isPrivate"`
@@ -67,7 +67,7 @@ func (c *Client) newAttachmentRequest(attachment EntryAttachment) (string, error
 		return "", fmt.Errorf("failed to unmarshal response body. error: %w", err)
 	}
 
-	return attachment.ID, nil
+	return attachment.Id, nil
 }
 
 func (c *Client) uploadAttachment(fileBytes []byte, attachmentId string) error {

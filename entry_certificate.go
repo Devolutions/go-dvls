@@ -14,7 +14,7 @@ type EntryCertificateService service
 
 // EntryCertificate represents a certificate entry.
 type EntryCertificate struct {
-	ID                    string
+	Id                    string
 	VaultId               string
 	Name                  string
 	Description           string
@@ -31,7 +31,7 @@ type EntryCertificate struct {
 }
 
 type rawEntryCertificate struct {
-	ID              string      `json:"id,omitempty"`
+	Id              string      `json:"id,omitempty"`
 	VaultId         string      `json:"repositoryId"`
 	Name            string      `json:"name"`
 	Description     string      `json:"description"`
@@ -61,7 +61,7 @@ type entryCertificateData struct {
 // MarshalJSON implements the json.Marshaler interface.
 func (e EntryCertificate) MarshalJSON() ([]byte, error) {
 	raw := rawEntryCertificate{
-		ID:              e.ID,
+		Id:              e.Id,
 		VaultId:         e.VaultId,
 		Name:            e.Name,
 		Description:     e.Description,
@@ -121,7 +121,7 @@ func (e *EntryCertificate) UnmarshalJSON(d []byte) error {
 		}
 	}
 
-	e.ID = raw.Data.ID
+	e.Id = raw.Data.Id
 	e.VaultId = raw.Data.VaultId
 	e.Name = raw.Data.Name
 	e.Description = raw.Data.Description
@@ -179,7 +179,7 @@ func (c *EntryCertificateService) GetFileContent(entryId string) ([]byte, error)
 // GetPassword returns the password of the entry specified by entry.
 func (c *EntryCertificateService) GetPassword(entry EntryCertificate) (EntryCertificate, error) {
 	var entryPassword EntryCertificate
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
@@ -243,7 +243,7 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 
 	if content != nil {
 		attachment := EntryAttachment{
-			EntryID:   entry.ID,
+			EntryId:   entry.Id,
 			FileName:  entry.CertificateIdentifier,
 			Size:      len(content),
 			IsPrivate: true,
@@ -265,7 +265,7 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 
 // Update updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
-	oldEntry, err := c.Get(entry.ID)
+	oldEntry, err := c.Get(entry.Id)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	}

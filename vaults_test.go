@@ -15,13 +15,13 @@ var testVault Vault = Vault{
 }
 
 var testNewVault Vault = Vault{
-	ID:          testNewVaultId,
+	Id:          testNewVaultId,
 	Name:        "go-dvls new",
 	Description: "Test",
 }
 
 func Test_Vaults(t *testing.T) {
-	testVault.ID = testVaultId
+	testVault.Id = testVaultId
 	t.Run("GetVault", test_GetVault)
 	t.Run("NewVault", test_NewVault)
 	t.Run("UpdateVault", test_UpdateVault)
@@ -48,7 +48,7 @@ func test_NewVault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	vault, err := testClient.Vaults.Get(testNewVault.ID)
+	vault, err := testClient.Vaults.Get(testNewVault.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -71,7 +71,7 @@ func test_UpdateVault(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	valid, err := testClient.Vaults.ValidatePassword(testNewVault.ID, testNewVaultPassword)
+	valid, err := testClient.Vaults.ValidatePassword(testNewVault.Id, testNewVaultPassword)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +80,7 @@ func test_UpdateVault(t *testing.T) {
 		t.Fatal("vault password validation failed, expected ", testNewVaultPassword)
 	}
 
-	vault, err := testClient.Vaults.Get(testNewVault.ID)
+	vault, err := testClient.Vaults.Get(testNewVault.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -94,7 +94,7 @@ func test_UpdateVault(t *testing.T) {
 }
 
 func test_DeleteVault(t *testing.T) {
-	err := testClient.Vaults.Delete(testNewVault.ID)
+	err := testClient.Vaults.Delete(testNewVault.Id)
 	if err != nil {
 		t.Fatal(err)
 	}

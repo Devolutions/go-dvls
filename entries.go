@@ -21,7 +21,7 @@ type Entries struct {
 }
 
 type Entry struct {
-	ID      string `json:"id,omitempty"`
+	Id      string `json:"id,omitempty"`
 	VaultId string `json:"vaultId,omitempty"`
 	Name    string `json:"name"`
 	Path    string `json:"path"`
