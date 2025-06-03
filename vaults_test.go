@@ -10,13 +10,13 @@ const testNewVaultId string = "eabd3646-acf8-44a4-9ba0-991df147c209"
 var testNewVaultPassword string = "5w:mr6kPj"
 
 var testVault Vault = Vault{
-	Name:        "go-dvls tests",
+	Name:        "go-dvls",
 	Description: "Test Vault",
 }
 
 var testNewVault Vault = Vault{
 	ID:          testNewVaultId,
-	Name:        "go-dvls tests new",
+	Name:        "go-dvls new",
 	Description: "Test",
 }
 

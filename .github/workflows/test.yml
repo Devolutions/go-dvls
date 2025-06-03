@@ -64,8 +64,6 @@ jobs:
         uses: ./.github/workflows/tailscale
         with:
           auth_key: ${{ secrets.TAILSCALE_AUTH_KEY_EPHEMERAL }}
-          exit_node: 100.99.49.20
-          accept_dns: true
 
       - name: Test application
         uses: ./.github/workflows/go-test
