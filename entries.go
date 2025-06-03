@@ -1,51 +1,114 @@
 package dvls
 
 import (
-	"strconv"
+	"encoding/json"
+	"fmt"
 	"strings"
 )
 
 const (
 	entryEndpoint            string = "/api/connections/partial"
 	entryConnectionsEndpoint string = "/api/connections"
+	entryBasePublicEndpoint  string = "/api/v1/vault/{vaultId}/entry"
+	entryPublicEndpoint      string = "/api/v1/vault/{vaultId}/entry/{id}"
 )
 
 type Entries struct {
-	Certificate    *EntryCertificateService
-	Host           *EntryHostService
-	UserCredential *EntryUserCredentialService
-	Website        *EntryWebsiteService
+	Certificate *EntryCertificateService
+	Host        *EntryHostService
+	Credential  *EntryCredentialService
+	Website     *EntryWebsiteService
 }
 
-func keywordsToSlice(kw string) []string {
-	var spacedTag bool
-	tags := strings.FieldsFunc(string(kw), func(r rune) bool {
-		if r == '"' {
-			spacedTag = !spacedTag
-		}
-		return !spacedTag && r == ' '
+type Entry struct {
+	ID      string `json:"id,omitempty"`
+	VaultId string `json:"vaultId,omitempty"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Type    string `json:"type"`
+	SubType string `json:"subType"`
+
+	Data EntryData `json:"data,omitempty"`
+
+	Description string      `json:"description"`
+	ModifiedBy  string      `json:"modifiedBy,omitempty"`
+	ModifiedOn  *ServerTime `json:"modifiedOn,omitempty"`
+	CreatedBy   string      `json:"createdBy,omitempty"`
+	CreatedOn   *ServerTime `json:"createdOn,omitempty"`
+	Tags        []string    `json:"tags,omitempty"`
+}
+
+type EntryData any
+
+func (e *Entry) GetType() string {
+	return e.Type
+}
+
+func (e *Entry) GetSubType() string {
+	return e.SubType
+}
+
+var entryFactories = map[string]func() EntryData{
+	"Credential/AccessCode":            func() EntryData { return &EntryCredentialAccessCodeData{} },
+	"Credential/ApiKey":                func() EntryData { return &EntryCredentialApiKeyData{} },
+	"Credential/AzureServicePrincipal": func() EntryData { return &EntryCredentialAzureServicePrincipalData{} },
+	"Credential/ConnectionString":      func() EntryData { return &EntryCredentialConnectionStringData{} },
+	"Credential/Default":               func() EntryData { return &EntryCredentialDefaultData{} },
+	"Credential/PrivateKey":            func() EntryData { return &EntryCredentialPrivateKeyData{} },
+}
+
+func (e *Entry) UnmarshalJSON(data []byte) error {
+	type alias Entry
+	raw := &struct {
+		Data json.RawMessage `json:"data"`
+		*alias
+	}{
+		alias: (*alias)(e),
+	}
+
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+
+	key := fmt.Sprintf("%s/%s", raw.Type, raw.SubType)
+	factory, ok := entryFactories[key]
+	if !ok {
+		return fmt.Errorf("unsupported entry type/subtype: %s", key)
+	}
+
+	dataStruct := factory()
+	if err := json.Unmarshal(raw.Data, dataStruct); err != nil {
+		return fmt.Errorf("failed to unmarshal entry data: %w", err)
+	}
+
+	e.Data = dataStruct
+
+	return nil
+}
+
+func (e Entry) MarshalJSON() ([]byte, error) {
+	type alias Entry
+
+	dataBytes, err := json.Marshal(e.Data)
+	if err != nil {
+		return nil, err
+	}
+
+	return json.Marshal(&struct {
+		Data json.RawMessage `json:"data"`
+		*alias
+	}{
+		Data:  dataBytes,
+		alias: (*alias)(&e),
 	})
-	for i, v := range tags {
-		unquotedTag, err := strconv.Unquote(v)
-		if err != nil {
-			continue
-		}
-
-		tags[i] = unquotedTag
-	}
-
-	return tags
 }
 
-func sliceToKeywords(kw []string) string {
-	keywords := []string(kw)
-	for i, v := range keywords {
-		if strings.Contains(v, " ") {
-			kw[i] = "\"" + v + "\""
-		}
-	}
+func entryPublicEndpointReplacer(vaultId string, entryId string) string {
+	replacer := strings.NewReplacer("{vaultId}", vaultId, "{id}", entryId)
+	return replacer.Replace(entryPublicEndpoint)
+}
 
-	kString := strings.Join(keywords, " ")
-
-	return kString
+func entryPublicBaseEndpointReplacer(vaultId string) string {
+	replacer := strings.NewReplacer("{vaultId}", vaultId)
+	return replacer.Replace(entryBasePublicEndpoint)
 }
