@@ -24,7 +24,7 @@ const (
 
 func Test_EntryHost(t *testing.T) {
 	testHostEntryId = os.Getenv("TEST_HOST_ENTRY_ID")
-	testHostEntry.ID = testHostEntryId
+	testHostEntry.Id = testHostEntryId
 	testHostEntry.VaultId = testVaultId
 	testHostEntry.HostDetails = EntryHostAuthDetails{
 		Username: testHostUsername,
@@ -36,7 +36,7 @@ func Test_EntryHost(t *testing.T) {
 }
 
 func test_GetHostEntry(t *testing.T) {
-	entry, err := testClient.Entries.Host.Get(testHostEntry.ID)
+	entry, err := testClient.Entries.Host.Get(testHostEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,7 +48,7 @@ func test_GetHostEntry(t *testing.T) {
 }
 
 func test_GetHostDetails(t *testing.T) {
-	entry, err := testClient.Entries.Host.Get(testHostEntry.ID)
+	entry, err := testClient.Entries.Host.Get(testHostEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -11,7 +11,7 @@ type EntryWebsiteService service
 
 // EntryWebsite represents a website entry in DVLS
 type EntryWebsite struct {
-	ID                string                  `json:"id,omitempty"`
+	Id                string                  `json:"id,omitempty"`
 	VaultId           string                  `json:"repositoryId"`
 	EntryName         string                  `json:"name"`
 	Description       string                  `json:"description"`
@@ -27,7 +27,7 @@ type EntryWebsite struct {
 // MarshalJSON implements the json.Marshaler interface.
 func (e EntryWebsite) MarshalJSON() ([]byte, error) {
 	raw := struct {
-		ID           string `json:"id,omitempty"`
+		Id           string `json:"id,omitempty"`
 		RepositoryId string `json:"repositoryId"`
 		Name         string `json:"name"`
 		Description  string `json:"description"`
@@ -53,7 +53,7 @@ func (e EntryWebsite) MarshalJSON() ([]byte, error) {
 		Keywords          string                  `json:"keywords"`
 	}{}
 
-	raw.ID = e.ID
+	raw.Id = e.Id
 	raw.Keywords = sliceToKeywords(e.Tags)
 	raw.Description = e.Description
 	raw.RepositoryId = e.VaultId
@@ -79,7 +79,7 @@ func (e EntryWebsite) MarshalJSON() ([]byte, error) {
 // UnmarshalJSON implements the json.Unmarshaler interface.
 func (e *EntryWebsite) UnmarshalJSON(d []byte) error {
 	raw := struct {
-		ID                string                  `json:"id"`
+		Id                string                  `json:"id"`
 		Description       string                  `json:"description"`
 		Name              string                  `json:"name"`
 		Group             string                  `json:"group"`
@@ -96,7 +96,7 @@ func (e *EntryWebsite) UnmarshalJSON(d []byte) error {
 		return err
 	}
 
-	e.ID = raw.ID
+	e.Id = raw.Id
 	e.EntryName = raw.Name
 	e.ConnectionType = raw.ConnectionType
 	e.ConnectionSubType = raw.ConnectionSubType
@@ -169,7 +169,7 @@ func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsit
 		Data string `json:"data"`
 	}
 
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.ID, "/sensitive-data")
+	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
 	if err != nil {
 		return EntryWebsite{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}

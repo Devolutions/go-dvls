@@ -25,7 +25,7 @@ var (
 func Test_EntryCertificate(t *testing.T) {
 	testCertificateFilePath = os.Getenv("TEST_CERTIFICATE_FILE_PATH")
 	testCertificateEntryId = os.Getenv("TEST_CERTIFICATE_ENTRY_ID")
-	testCertificateEntry.ID = testCertificateEntryId
+	testCertificateEntry.Id = testCertificateEntryId
 	testCertificateEntry.VaultId = testVaultId
 	location, err := time.LoadLocation("America/Montreal")
 	if err != nil {
@@ -44,7 +44,7 @@ func Test_EntryCertificate(t *testing.T) {
 func test_GetCertificateEntry(t *testing.T) {
 	testGetEntry := testCertificateEntry
 
-	entry, err := testClient.Entries.Certificate.Get(testGetEntry.ID)
+	entry, err := testClient.Entries.Certificate.Get(testGetEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func test_GetCertificateEntry(t *testing.T) {
 
 func test_NewCertificateEntryFile(t *testing.T) {
 	entry := testCertificateEntry
-	entry.ID = ""
+	entry.Id = ""
 	file, err := os.Open(testCertificateFilePath)
 	if err != nil {
 		t.Fatal(err)
@@ -93,7 +93,7 @@ func test_NewCertificateEntryFile(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	returnedFileBytes, err := testClient.Entries.Certificate.GetFileContent(newEntry.ID)
+	returnedFileBytes, err := testClient.Entries.Certificate.GetFileContent(newEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -102,7 +102,7 @@ func test_NewCertificateEntryFile(t *testing.T) {
 		t.Fatalf("fetched file content did not match test file content. Expected %#v, got %#v", fileBytes, returnedFileBytes)
 	}
 
-	entry.ID = newEntry.ID
+	entry.Id = newEntry.Id
 	entry.data = newEntry.data
 	newEntry, err = testClient.Entries.Certificate.GetPassword(newEntry)
 	if err != nil {
@@ -124,7 +124,7 @@ func test_NewCertificateEntryFile(t *testing.T) {
 
 func test_NewCertificateEntryURL(t *testing.T) {
 	entry := testCertificateEntry
-	entry.ID = ""
+	entry.Id = ""
 	entry.CertificateIdentifier = "https://devolutions.net/"
 
 	newEntry, err := testClient.Entries.Certificate.NewURL(entry)
@@ -132,7 +132,7 @@ func test_NewCertificateEntryURL(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	entry.ID = newEntry.ID
+	entry.Id = newEntry.Id
 	entry.data = newEntry.data
 	newEntry, err = testClient.Entries.Certificate.GetPassword(newEntry)
 	if err != nil {
@@ -177,12 +177,12 @@ func test_UpdateCertificateEntry(t *testing.T) {
 }
 
 func test_DeleteCertificateEntry(t *testing.T) {
-	err := testClient.Entries.Certificate.Delete(testNewCertificateEntryURL.ID)
+	err := testClient.Entries.Certificate.Delete(testNewCertificateEntryURL.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = testClient.Entries.Certificate.Delete(testNewCertificateEntryFile.ID)
+	err = testClient.Entries.Certificate.Delete(testNewCertificateEntryFile.Id)
 	if err != nil {
 		t.Fatal(err)
 	}

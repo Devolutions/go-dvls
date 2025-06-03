@@ -26,15 +26,15 @@ type EntryCredentialAccessCodeData struct {
 }
 
 type EntryCredentialApiKeyData struct {
-	ApiID    string `json:"apiId,omitempty"`
+	ApiId    string `json:"apiId,omitempty"`
 	ApiKey   string `json:"apiKey,omitempty"`
-	TenantID string `json:"tenantId,omitempty"`
+	TenantId string `json:"tenantId,omitempty"`
 }
 
 type EntryCredentialAzureServicePrincipalData struct {
-	ClientID     string `json:"clientId,omitempty"`
+	ClientId     string `json:"clientId,omitempty"`
 	ClientSecret string `json:"clientSecret,omitempty"`
-	TenantID     string `json:"tenantId,omitempty"`
+	TenantId     string `json:"tenantId,omitempty"`
 }
 
 type EntryCredentialConnectionStringData struct {
@@ -145,13 +145,13 @@ func (c *EntryCredentialService) validateEntry(entry *Entry) error {
 
 // Get returns a single EntryCredential
 func (c *EntryCredentialService) Get(entry Entry) (Entry, error) {
-	return c.GetById(entry.VaultId, entry.ID)
+	return c.GetById(entry.VaultId, entry.Id)
 }
 
-// Get returns a single EntryCredential based on vault ID and entry ID.
+// Get returns a single EntryCredential based on vault Id and entry Id.
 func (c *EntryCredentialService) GetById(vaultId string, entryId string) (Entry, error) {
 	if vaultId == "" || entryId == "" {
-		return Entry{}, fmt.Errorf("both entry ID and vault ID are required")
+		return Entry{}, fmt.Errorf("both entry Id and vault Id are required")
 	}
 
 	var entry Entry
@@ -234,8 +234,8 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 		return Entry{}, err
 	}
 
-	if entry.ID == "" {
-		return Entry{}, fmt.Errorf("entry ID is required for updates")
+	if entry.Id == "" {
+		return Entry{}, fmt.Errorf("entry Id is required for updates")
 	}
 
 	updateEntryRequest := struct {
@@ -252,7 +252,7 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 		Tags:        entry.Tags,
 	}
 
-	entryUri := entryPublicEndpointReplacer(entry.VaultId, entry.ID)
+	entryUri := entryPublicEndpointReplacer(entry.VaultId, entry.Id)
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
 		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
@@ -268,7 +268,7 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 		return Entry{}, fmt.Errorf("error while updating entry. error: %w", err)
 	}
 
-	entry, err = c.GetById(entry.VaultId, entry.ID)
+	entry, err = c.GetById(entry.VaultId, entry.Id)
 	if err != nil {
 		return Entry{}, fmt.Errorf("update succeeded but failed to fetch updated entry: %w", err)
 	}
@@ -278,13 +278,13 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 
 // Delete deletes an entry
 func (c *EntryCredentialService) Delete(e Entry) error {
-	return c.DeleteByID(e.VaultId, e.ID)
+	return c.DeleteById(e.VaultId, e.Id)
 }
 
-// Delete deletes an entry based on vault ID and entry ID
-func (c *EntryCredentialService) DeleteByID(vaultId string, entryId string) error {
+// Delete deletes an entry based on vault Id and entry Id
+func (c *EntryCredentialService) DeleteById(vaultId string, entryId string) error {
 	if vaultId == "" || entryId == "" {
-		return fmt.Errorf("both entry ID and vault ID are required")
+		return fmt.Errorf("both entry Id and vault Id are required")
 	}
 
 	entryUri := entryPublicEndpointReplacer(vaultId, entryId)

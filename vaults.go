@@ -12,7 +12,7 @@ type Vaults service
 
 // Vault represents a DVLS vault. Contains relevant vault information.
 type Vault struct {
-	ID            string
+	Id            string
 	Name          string
 	Description   string
 	SecurityLevel VaultSecurityLevel
@@ -70,7 +70,7 @@ func (v *Vault) UnmarshalJSON(b []byte) error {
 	}
 
 	vault := Vault{
-		ID:            raw.Data.Id,
+		Id:            raw.Data.Id,
 		Name:          raw.Data.Name,
 		Description:   raw.Data.Description,
 		SecurityLevel: securityLevel,
@@ -101,8 +101,8 @@ func (v Vault) MarshalJSON() ([]byte, error) {
 
 	raw.Name = v.Name
 	raw.Description = v.Description
-	raw.Id = v.ID
-	raw.IdString = v.ID
+	raw.Id = v.Id
+	raw.IdString = v.Id
 	raw.RepositorySettings.VaultSecurityLevel = &securityLevel
 	raw.RepositorySettings.VaultAllowAccessRequestRole = int(v.Visibility)
 
@@ -176,7 +176,7 @@ func (c *Vaults) New(vault Vault, options *VaultOptions) error {
 
 // Update updates a Vault based on vault.
 func (c *Vaults) Update(vault Vault, options *VaultOptions) error {
-	_, err := c.client.Vaults.Get(vault.ID)
+	_, err := c.client.Vaults.Get(vault.Id)
 	if err != nil {
 		return fmt.Errorf("error while fetching vault. error: %w", err)
 	}

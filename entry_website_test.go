@@ -26,7 +26,7 @@ const (
 
 func Test_EntryWebsite(t *testing.T) {
 	testWebsiteEntryId = os.Getenv("TEST_WEBSITE_ENTRY_ID")
-	testWebsiteEntry.ID = testWebsiteEntryId
+	testWebsiteEntry.Id = testWebsiteEntryId
 	testWebsiteEntry.VaultId = testVaultId
 	testWebsiteEntry.WebsiteDetails = EntryWebsiteAuthDetails{
 		Username:              testWebsiteUsername,
@@ -40,7 +40,7 @@ func Test_EntryWebsite(t *testing.T) {
 }
 
 func test_GetWebsiteEntry(t *testing.T) {
-	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.ID)
+	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +52,7 @@ func test_GetWebsiteEntry(t *testing.T) {
 }
 
 func test_GetWebsiteDetails(t *testing.T) {
-	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.ID)
+	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -5,22 +5,22 @@ import (
 )
 
 var (
-	testCredentialAccessCodeEntryID *string
+	testCredentialAccessCodeEntryId *string
 	testCredentialAccessCodeEntry   *Entry
 
-	testCredentialApiKeyEntryID *string
+	testCredentialApiKeyEntryId *string
 	testCredentialApiKeyEntry   *Entry
 
-	testCredentialAzureServicePrincipalEntryID *string
+	testCredentialAzureServicePrincipalEntryId *string
 	testCredentialAzureServicePrincipalEntry   *Entry
 
-	testCredentialConnectionStringEntryID *string
+	testCredentialConnectionStringEntryId *string
 	testCredentialConnectionStringEntry   *Entry
 
-	testCredentialDefaultEntryID *string
+	testCredentialDefaultEntryId *string
 	testCredentialDefaultEntry   *Entry
 
-	testCredentialPrivateKeyEntryID *string
+	testCredentialPrivateKeyEntryId *string
 	testCredentialPrivateKeyEntry   *Entry
 )
 
@@ -51,7 +51,7 @@ func test_NewUserEntry(t *testing.T) {
 
 	// Credential/AccessCode
 	testCredentialAccessCodeEntry := Entry{
-		ID:          "",
+		Id:          "",
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsAccessCode",
 		Path:        "go-dvls\\accesscode",
@@ -64,20 +64,20 @@ func test_NewUserEntry(t *testing.T) {
 		Tags: []string{"accesscode"},
 	}
 
-	newCredentialAccessCodeEntryID, err := testClient.Entries.Credential.New(testCredentialAccessCodeEntry)
+	newCredentialAccessCodeEntryId, err := testClient.Entries.Credential.New(testCredentialAccessCodeEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new AccessCode entry: %v", err)
 	}
 
-	if newCredentialAccessCodeEntryID == "" {
-		t.Fatal("New AccessCode entry ID is empty after creation.")
+	if newCredentialAccessCodeEntryId == "" {
+		t.Fatal("New AccessCode entry Id is empty after creation.")
 	}
 
-	testCredentialAccessCodeEntryID = &newCredentialAccessCodeEntryID
+	testCredentialAccessCodeEntryId = &newCredentialAccessCodeEntryId
 
 	// Credential/ApiKey
 	testCredentialApiKeyEntry := Entry{
-		ID:          "",
+		Id:          "",
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsApiKey",
 		Path:        "go-dvls\\apikey",
@@ -85,27 +85,27 @@ func test_NewUserEntry(t *testing.T) {
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeApiKey,
 		Data: EntryCredentialApiKeyData{
-			ApiID:    "abcd1234-abcd-1234-abcd-1234abcd1234",
+			ApiId:    "abcd1234-abcd-1234-abcd-1234abcd1234",
 			ApiKey:   "123-abc",
-			TenantID: "00000000-aaaa-bbbb-cccc-000000000000",
+			TenantId: "00000000-aaaa-bbbb-cccc-000000000000",
 		},
 		Tags: []string{"apikey"},
 	}
 
-	newCredentialApiKeyEntryID, err := testClient.Entries.Credential.New(testCredentialApiKeyEntry)
+	newCredentialApiKeyEntryId, err := testClient.Entries.Credential.New(testCredentialApiKeyEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new ApiKey entry: %v", err)
 	}
 
-	if newCredentialApiKeyEntryID == "" {
-		t.Fatal("New ApiKey entry ID is empty after creation.")
+	if newCredentialApiKeyEntryId == "" {
+		t.Fatal("New ApiKey entry Id is empty after creation.")
 	}
 
-	testCredentialApiKeyEntryID = &newCredentialApiKeyEntryID
+	testCredentialApiKeyEntryId = &newCredentialApiKeyEntryId
 
 	// Credential/AzureServicePrincipal
 	testCredentialAzureServicePrincipalEntry := Entry{
-		ID:          "",
+		Id:          "",
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsAzureServicePrincipal",
 		Path:        "go-dvls\\azureserviceprincipal",
@@ -113,27 +113,27 @@ func test_NewUserEntry(t *testing.T) {
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeAzureServicePrincipal,
 		Data: EntryCredentialAzureServicePrincipalData{
-			ClientID:     "abcd1234-abcd-1234-abcd-1234abcd1234",
+			ClientId:     "abcd1234-abcd-1234-abcd-1234abcd1234",
 			ClientSecret: "123-abc",
-			TenantID:     "00000000-aaaa-bbbb-cccc-000000000000",
+			TenantId:     "00000000-aaaa-bbbb-cccc-000000000000",
 		},
 		Tags: []string{"azureserviceprincipal"},
 	}
 
-	newCredentialAzureServicePrincipalEntryID, err := testClient.Entries.Credential.New(testCredentialAzureServicePrincipalEntry)
+	newCredentialAzureServicePrincipalEntryId, err := testClient.Entries.Credential.New(testCredentialAzureServicePrincipalEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new AzureServicePrincipal entry: %v", err)
 	}
 
-	if newCredentialAzureServicePrincipalEntryID == "" {
-		t.Fatal("New AzureServicePrincipal entry ID is empty after creation.")
+	if newCredentialAzureServicePrincipalEntryId == "" {
+		t.Fatal("New AzureServicePrincipal entry Id is empty after creation.")
 	}
 
-	testCredentialAzureServicePrincipalEntryID = &newCredentialAzureServicePrincipalEntryID
+	testCredentialAzureServicePrincipalEntryId = &newCredentialAzureServicePrincipalEntryId
 
 	// Credential/ConnectionString
 	testCredentialConnectionStringEntry := Entry{
-		ID:          "",
+		Id:          "",
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsConnectionString",
 		Path:        "go-dvls\\connectionstring",
@@ -146,16 +146,16 @@ func test_NewUserEntry(t *testing.T) {
 		Tags: []string{"connectionstring"},
 	}
 
-	newCredentialConnectionStringEntryID, err := testClient.Entries.Credential.New(testCredentialConnectionStringEntry)
+	newCredentialConnectionStringEntryId, err := testClient.Entries.Credential.New(testCredentialConnectionStringEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new ConnectionString entry: %v", err)
 	}
 
-	if newCredentialConnectionStringEntryID == "" {
-		t.Fatal("New ConnectionString entry ID is empty after creation.")
+	if newCredentialConnectionStringEntryId == "" {
+		t.Fatal("New ConnectionString entry Id is empty after creation.")
 	}
 
-	testCredentialConnectionStringEntryID = &newCredentialConnectionStringEntryID
+	testCredentialConnectionStringEntryId = &newCredentialConnectionStringEntryId
 
 	// Credential/Default
 	testCredentialDefaultEntry := Entry{
@@ -173,20 +173,20 @@ func test_NewUserEntry(t *testing.T) {
 		Tags: []string{"usernamepassword"},
 	}
 
-	newCredentialDefaultEntryID, err := testClient.Entries.Credential.New(testCredentialDefaultEntry)
+	newCredentialDefaultEntryId, err := testClient.Entries.Credential.New(testCredentialDefaultEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new Default entry: %v", err)
 	}
 
-	if newCredentialDefaultEntryID == "" {
-		t.Fatal("New Default entry ID is empty after creation.")
+	if newCredentialDefaultEntryId == "" {
+		t.Fatal("New Default entry Id is empty after creation.")
 	}
 
-	testCredentialDefaultEntryID = &newCredentialDefaultEntryID
+	testCredentialDefaultEntryId = &newCredentialDefaultEntryId
 
 	// Credential/PrivateKey
 	testCredentialPrivateKeyEntry := Entry{
-		ID:          "",
+		Id:          "",
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsPrivateKey",
 		Path:        "go-dvls\\privatekey",
@@ -202,87 +202,87 @@ func test_NewUserEntry(t *testing.T) {
 		Tags: []string{"testtag"},
 	}
 
-	newCredentialPrivateKeyEntryID, err := testClient.Entries.Credential.New(testCredentialPrivateKeyEntry)
+	newCredentialPrivateKeyEntryId, err := testClient.Entries.Credential.New(testCredentialPrivateKeyEntry)
 	if err != nil {
 		t.Fatalf("Failed to create new PrivateKey entry: %v", err)
 	}
 
-	if newCredentialPrivateKeyEntryID == "" {
-		t.Fatal("New PrivateKey entry ID is empty after creation.")
+	if newCredentialPrivateKeyEntryId == "" {
+		t.Fatal("New PrivateKey entry Id is empty after creation.")
 	}
 
-	testCredentialPrivateKeyEntryID = &newCredentialPrivateKeyEntryID
+	testCredentialPrivateKeyEntryId = &newCredentialPrivateKeyEntryId
 }
 
 func test_GetUserEntry(t *testing.T) {
 	// Credential/AccessCode
-	credentialAccessCodeEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialAccessCodeEntryID)
+	credentialAccessCodeEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialAccessCodeEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get AccessCode entry: %v", err)
 	}
 
-	if credentialAccessCodeEntry.ID == "" {
-		t.Fatalf("AccessCode entry ID is empty after GET: %v", credentialAccessCodeEntry)
+	if credentialAccessCodeEntry.Id == "" {
+		t.Fatalf("AccessCode entry Id is empty after GET: %v", credentialAccessCodeEntry)
 	}
 
 	testCredentialAccessCodeEntry = &credentialAccessCodeEntry
 
 	// Credential/ApiKey
-	credentialApiKeyEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialApiKeyEntryID)
+	credentialApiKeyEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialApiKeyEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get ApiKey entry: %v", err)
 	}
 
-	if credentialApiKeyEntry.ID == "" {
-		t.Fatalf("ApiKey entry ID is empty after GET: %v", credentialApiKeyEntry)
+	if credentialApiKeyEntry.Id == "" {
+		t.Fatalf("ApiKey entry Id is empty after GET: %v", credentialApiKeyEntry)
 	}
 
 	testCredentialApiKeyEntry = &credentialApiKeyEntry
 
 	// Credential/AzureServicePrincipal
-	credentialAzureServicePrincipalEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialAzureServicePrincipalEntryID)
+	credentialAzureServicePrincipalEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialAzureServicePrincipalEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get AzureServicePrincipal entry: %v", err)
 	}
 
-	if credentialAzureServicePrincipalEntry.ID == "" {
-		t.Fatalf("AzureServicePrincipal entry ID is empty after GET: %v", credentialAzureServicePrincipalEntry)
+	if credentialAzureServicePrincipalEntry.Id == "" {
+		t.Fatalf("AzureServicePrincipal entry Id is empty after GET: %v", credentialAzureServicePrincipalEntry)
 	}
 
 	testCredentialAzureServicePrincipalEntry = &credentialAzureServicePrincipalEntry
 
 	// Credential/ConnectionString
-	credentialConnectionStringEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialConnectionStringEntryID)
+	credentialConnectionStringEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialConnectionStringEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get ConnectionString entry: %v", err)
 	}
 
-	if credentialConnectionStringEntry.ID == "" {
-		t.Fatalf("ConnectionString entry ID is empty after GET: %v", credentialConnectionStringEntry)
+	if credentialConnectionStringEntry.Id == "" {
+		t.Fatalf("ConnectionString entry Id is empty after GET: %v", credentialConnectionStringEntry)
 	}
 
 	testCredentialConnectionStringEntry = &credentialConnectionStringEntry
 
 	// Credential/Default
-	credentialDefaultEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialDefaultEntryID)
+	credentialDefaultEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialDefaultEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get Default entry: %v", err)
 	}
 
-	if credentialDefaultEntry.ID == "" {
-		t.Fatalf("Default entry ID is empty after GET: %v", credentialDefaultEntry)
+	if credentialDefaultEntry.Id == "" {
+		t.Fatalf("Default entry Id is empty after GET: %v", credentialDefaultEntry)
 	}
 
 	testCredentialDefaultEntry = &credentialDefaultEntry
 
 	// Credential/PrivateKey
-	credentialPrivateKeyEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialPrivateKeyEntryID)
+	credentialPrivateKeyEntry, err := testClient.Entries.Credential.GetById(testVaultId, *testCredentialPrivateKeyEntryId)
 	if err != nil {
 		t.Fatalf("Failed to get PrivateKey entry: %v", err)
 	}
 
-	if credentialPrivateKeyEntry.ID == "" {
-		t.Fatalf("PrivateKey entry ID is empty after GET: %v", credentialPrivateKeyEntry)
+	if credentialPrivateKeyEntry.Id == "" {
+		t.Fatalf("PrivateKey entry Id is empty after GET: %v", credentialPrivateKeyEntry)
 	}
 
 	testCredentialPrivateKeyEntry = &credentialPrivateKeyEntry
@@ -417,7 +417,7 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialAccessCodeEntry)
 	if err == nil {
-		t.Fatalf("AccessCode entry still exists after deletion: %s", *testCredentialAccessCodeEntryID)
+		t.Fatalf("AccessCode entry still exists after deletion: %s", *testCredentialAccessCodeEntryId)
 	}
 
 	// Credential/ApiKey
@@ -428,7 +428,7 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialApiKeyEntry)
 	if err == nil {
-		t.Fatalf("ApiKey entry still exists after deletion: %s", *testCredentialApiKeyEntryID)
+		t.Fatalf("ApiKey entry still exists after deletion: %s", *testCredentialApiKeyEntryId)
 	}
 
 	// Credential/AzureServicePrincipal
@@ -439,7 +439,7 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialAzureServicePrincipalEntry)
 	if err == nil {
-		t.Fatalf("AzureServicePrincipal entry still exists after deletion: %s", *testCredentialAzureServicePrincipalEntryID)
+		t.Fatalf("AzureServicePrincipal entry still exists after deletion: %s", *testCredentialAzureServicePrincipalEntryId)
 	}
 
 	// Credential/ConnectionString
@@ -450,7 +450,7 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialConnectionStringEntry)
 	if err == nil {
-		t.Fatalf("ConnectionString entry still exists after deletion: %s", *testCredentialConnectionStringEntryID)
+		t.Fatalf("ConnectionString entry still exists after deletion: %s", *testCredentialConnectionStringEntryId)
 	}
 
 	// Credential/Default
@@ -461,7 +461,7 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialDefaultEntry)
 	if err == nil {
-		t.Fatalf("Default entry still exists after deletion: %s", *testCredentialDefaultEntryID)
+		t.Fatalf("Default entry still exists after deletion: %s", *testCredentialDefaultEntryId)
 	}
 
 	// Credential/PrivateKey
@@ -472,6 +472,6 @@ func test_DeleteUserEntry(t *testing.T) {
 
 	_, err = testClient.Entries.Credential.Get(*testCredentialPrivateKeyEntry)
 	if err == nil {
-		t.Fatalf("PrivateKey entry still exists after deletion: %s", *testCredentialPrivateKeyEntryID)
+		t.Fatalf("PrivateKey entry still exists after deletion: %s", *testCredentialPrivateKeyEntryId)
 	}
 }
