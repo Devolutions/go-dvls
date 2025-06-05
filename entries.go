@@ -21,21 +21,21 @@ type Entries struct {
 }
 
 type Entry struct {
-	Id      string `json:"id,omitempty"`
-	VaultId string `json:"vaultId,omitempty"`
-	Name    string `json:"name"`
-	Path    string `json:"path"`
-	Type    string `json:"type"`
-	SubType string `json:"subType"`
+	Id          string   `json:"id,omitempty"`
+	VaultId     string   `json:"vaultId,omitempty"`
+	Name        string   `json:"name"`
+	Path        string   `json:"path"`
+	Type        string   `json:"type"`
+	SubType     string   `json:"subType"`
+	Description string   `json:"description"`
+	Tags        []string `json:"tags,omitempty"`
 
 	Data EntryData `json:"data,omitempty"`
 
-	Description string      `json:"description"`
-	ModifiedBy  string      `json:"modifiedBy,omitempty"`
-	ModifiedOn  *ServerTime `json:"modifiedOn,omitempty"`
-	CreatedBy   string      `json:"createdBy,omitempty"`
-	CreatedOn   *ServerTime `json:"createdOn,omitempty"`
-	Tags        []string    `json:"tags,omitempty"`
+	CreatedBy  string      `json:"createdBy,omitempty"`
+	CreatedOn  *ServerTime `json:"createdOn,omitempty"`
+	ModifiedBy string      `json:"modifiedBy,omitempty"`
+	ModifiedOn *ServerTime `json:"modifiedOn,omitempty"`
 }
 
 type EntryData any
