@@ -55,13 +55,14 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsAccessCode",
 		Path:        "go-dvls\\accesscode",
-		Description: "Test AccessCode entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeAccessCode,
+		Description: "Test AccessCode entry",
+		Tags:        []string{"accesscode"},
+
 		Data: EntryCredentialAccessCodeData{
 			Password: "abc-123",
 		},
-		Tags: []string{"accesscode"},
 	}
 
 	newCredentialAccessCodeEntryId, err := testClient.Entries.Credential.New(testCredentialAccessCodeEntry)
@@ -81,15 +82,16 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsApiKey",
 		Path:        "go-dvls\\apikey",
-		Description: "Test ApiKey entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeApiKey,
+		Description: "Test ApiKey entry",
+		Tags:        []string{"apikey"},
+
 		Data: EntryCredentialApiKeyData{
 			ApiId:    "abcd1234-abcd-1234-abcd-1234abcd1234",
 			ApiKey:   "123-abc",
 			TenantId: "00000000-aaaa-bbbb-cccc-000000000000",
 		},
-		Tags: []string{"apikey"},
 	}
 
 	newCredentialApiKeyEntryId, err := testClient.Entries.Credential.New(testCredentialApiKeyEntry)
@@ -109,15 +111,16 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsAzureServicePrincipal",
 		Path:        "go-dvls\\azureserviceprincipal",
-		Description: "Test AzureServicePrincipal entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeAzureServicePrincipal,
+		Description: "Test AzureServicePrincipal entry",
+		Tags:        []string{"azureserviceprincipal"},
+
 		Data: EntryCredentialAzureServicePrincipalData{
 			ClientId:     "abcd1234-abcd-1234-abcd-1234abcd1234",
 			ClientSecret: "123-abc",
 			TenantId:     "00000000-aaaa-bbbb-cccc-000000000000",
 		},
-		Tags: []string{"azureserviceprincipal"},
 	}
 
 	newCredentialAzureServicePrincipalEntryId, err := testClient.Entries.Credential.New(testCredentialAzureServicePrincipalEntry)
@@ -137,13 +140,14 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsConnectionString",
 		Path:        "go-dvls\\connectionstring",
-		Description: "Test ConnectionString entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeConnectionString,
+		Description: "Test ConnectionString entry",
+		Tags:        []string{"connectionstring"},
+
 		Data: EntryCredentialConnectionStringData{
 			ConnectionString: "Server=tcp:example.database.windows.net,1433;Initial Catalog=exampledb;Persist Security Info=False;User ID=exampleuser;Password=examplepassword;",
 		},
-		Tags: []string{"connectionstring"},
 	}
 
 	newCredentialConnectionStringEntryId, err := testClient.Entries.Credential.New(testCredentialConnectionStringEntry)
@@ -162,15 +166,16 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsUsernamePassword",
 		Path:        "go-dvls\\usernamepassword",
-		Description: "Test Username/Password entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypeDefault,
+		Description: "Test Username/Password entry",
+		Tags:        []string{"usernamepassword"},
+
 		Data: EntryCredentialDefaultData{
 			Domain:   "www.example.com",
 			Password: "abc-123",
 			Username: "john.doe",
 		},
-		Tags: []string{"usernamepassword"},
 	}
 
 	newCredentialDefaultEntryId, err := testClient.Entries.Credential.New(testCredentialDefaultEntry)
@@ -190,16 +195,17 @@ func test_NewUserEntry(t *testing.T) {
 		VaultId:     testVaultId,
 		Name:        "TestGoDvlsPrivateKey",
 		Path:        "go-dvls\\privatekey",
-		Description: "Test Secret entry",
 		Type:        EntryCredentialType,
 		SubType:     EntryCredentialSubTypePrivateKey,
+		Description: "Test Secret entry",
+		Tags:        []string{"testtag"},
+
 		Data: EntryCredentialPrivateKeyData{
 			PrivateKey:       "-----BEGIN PRIVATE KEY-----\abcdefghijklmnopqrstuvwxyz1234567890...\n-----END PRIVATE",
 			PublicKey:        "-----BEGIN PUBLIC KEY-----\abcdefghijklmnopqrstuvwxyz...\n-----END PUBLIC KEY-----",
 			OverridePassword: "override-password",
 			Passphrase:       "passphrase",
 		},
-		Tags: []string{"testtag"},
 	}
 
 	newCredentialPrivateKeyEntryId, err := testClient.Entries.Credential.New(testCredentialPrivateKeyEntry)

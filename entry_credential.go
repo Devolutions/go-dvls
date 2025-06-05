@@ -189,16 +189,16 @@ func (c *EntryCredentialService) New(entry Entry) (string, error) {
 		Path        string    `json:"path,omitempty"`
 		Type        string    `json:"type"`
 		SubType     string    `json:"subType"`
-		Data        EntryData `json:"data"`
 		Tags        []string  `json:"tags,omitempty"`
+		Data        EntryData `json:"data"`
 	}{
 		Name:        entry.Name,
 		Description: entry.Description,
 		Path:        entry.Path,
 		Type:        entry.GetType(),
 		SubType:     entry.GetSubType(),
-		Data:        entry.Data,
 		Tags:        entry.Tags,
+		Data:        entry.Data,
 	}
 
 	baseEntryEndpoint := entryPublicBaseEndpointReplacer(entry.VaultId)
@@ -242,14 +242,14 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 		Name        string    `json:"name"`
 		Description string    `json:"description,omitempty"`
 		Path        string    `json:"path,omitempty"`
-		Data        EntryData `json:"data"`
 		Tags        []string  `json:"tags,omitempty"`
+		Data        EntryData `json:"data"`
 	}{
 		Name:        entry.Name,
 		Description: entry.Description,
 		Path:        entry.Path,
-		Data:        entry.Data,
 		Tags:        entry.Tags,
+		Data:        entry.Data,
 	}
 
 	entryUri := entryPublicEndpointReplacer(entry.VaultId, entry.Id)
