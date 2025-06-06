@@ -400,7 +400,7 @@ func test_UpdateUserEntry(t *testing.T) {
 	updatedCredentialPrivateKeyEntry.Description = updatedCredentialPrivateKeyEntry.Description + " updated"
 	updatedCredentialPrivateKeyEntry.Tags = []string{"tag one", "tag two"} // testing multi-word tags
 
-	updatedPrivateKeyData, ok := updatedCredentialPrivateKeyEntry.GetCredentialPrivayeKey()
+	updatedPrivateKeyData, ok := updatedCredentialPrivateKeyEntry.GetCredentialPrivateKeyData()
 	if !ok {
 		t.Fatalf("Failed to get credential access code data from entry: %v", updatedCredentialAccessCodeEntry)
 	}
