@@ -99,7 +99,7 @@ func (e *Entry) GetCredentialDefaultData() (*EntryCredentialDefaultData, bool) {
 	return data, ok
 }
 
-func (e *Entry) GetCredentialPrivayeKey() (*EntryCredentialPrivateKeyData, bool) {
+func (e *Entry) GetCredentialPrivateKeyData() (*EntryCredentialPrivateKeyData, bool) {
 	if e == nil {
 		return nil, false
 	}
