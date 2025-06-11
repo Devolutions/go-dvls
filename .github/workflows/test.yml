@@ -60,11 +60,6 @@ jobs:
           sudo cp ${{ runner.temp }}/certificate.pem /usr/local/share/ca-certificates/certificate.crt
           sudo update-ca-certificates
 
-      - name: Connect to Tailscale
-        uses: ./.github/workflows/tailscale
-        with:
-          auth_key: ${{ secrets.TAILSCALE_AUTH_KEY_EPHEMERAL }}
-
       - name: Test application
         uses: ./.github/workflows/go-test
         env:
