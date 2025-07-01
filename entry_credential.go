@@ -48,10 +48,11 @@ type EntryCredentialDefaultData struct {
 }
 
 type EntryCredentialPrivateKeyData struct {
-	PrivateKey       string `json:"privateKeyData,omitempty"`
-	PublicKey        string `json:"publicKeyData,omitempty"`
-	OverridePassword string `json:"privateKeyOverridePassword,omitempty"`
-	Passphrase       string `json:"privateKeyPassPhrase,omitempty"`
+	Username   string `json:"privateKeyOverrideUsername,omitempty"`
+	Password   string `json:"privateKeyOverridePassword,omitempty"`
+	PrivateKey string `json:"privateKeyData,omitempty"`
+	PublicKey  string `json:"publicKeyData,omitempty"`
+	Passphrase string `json:"privateKeyPassPhrase,omitempty"`
 }
 
 func (e *Entry) GetCredentialAccessCodeData() (*EntryCredentialAccessCodeData, bool) {
