@@ -201,10 +201,11 @@ func test_NewUserEntry(t *testing.T) {
 		Tags:        []string{"testtag"},
 
 		Data: EntryCredentialPrivateKeyData{
-			PrivateKey:       "-----BEGIN PRIVATE KEY-----\abcdefghijklmnopqrstuvwxyz1234567890...\n-----END PRIVATE",
-			PublicKey:        "-----BEGIN PUBLIC KEY-----\abcdefghijklmnopqrstuvwxyz...\n-----END PUBLIC KEY-----",
-			OverridePassword: "override-password",
-			Passphrase:       "passphrase",
+			Username:   "testuser",
+			Password:   "password",
+			PrivateKey: "-----BEGIN PRIVATE KEY-----\abcdefghijklmnopqrstuvwxyz1234567890...\n-----END PRIVATE",
+			PublicKey:  "-----BEGIN PUBLIC KEY-----\abcdefghijklmnopqrstuvwxyz...\n-----END PUBLIC KEY-----",
+			Passphrase: "passphrase",
 		},
 	}
 
@@ -404,8 +405,9 @@ func test_UpdateUserEntry(t *testing.T) {
 	if !ok {
 		t.Fatalf("Failed to get credential access code data from entry: %v", updatedCredentialAccessCodeEntry)
 	}
+	updatedPrivateKeyData.Username = updatedPrivateKeyData.Username + "-updated"
+	updatedPrivateKeyData.Password = updatedPrivateKeyData.Password + "-updated"
 	updatedPrivateKeyData.Passphrase = updatedPrivateKeyData.Passphrase + "-updated"
-	updatedPrivateKeyData.OverridePassword = updatedPrivateKeyData.OverridePassword + "-updated"
 	updatedCredentialPrivateKeyEntry.Data = updatedPrivateKeyData
 
 	updatedCredentialPrivateKeyEntry, err = testClient.Entries.Credential.Update(updatedCredentialPrivateKeyEntry)
