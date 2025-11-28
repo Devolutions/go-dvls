@@ -1,10 +1,8 @@
-# go-dvls
+# Go client for Devolutions Server
 [![Go Reference](https://pkg.go.dev/badge/github.com/Devolutions/go-dvls.svg)](https://pkg.go.dev/github.com/Devolutions/go-dvls)
 [![testing](https://github.com/Devolutions/go-dvls/actions/workflows/test.yml/badge.svg)](https://github.com/Devolutions/go-dvls/actions/workflows/test.yml)
 
 :warning: **This client is a work in progress, expect breaking changes between releases** :warning:
-
-Go client for DVLS
 
 Heavily based on the information found on the [Devolutions.Server](https://github.com/Devolutions/devolutions-server/tree/main/Powershell%20Module/Devolutions.Server) powershell module.
 
