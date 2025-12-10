@@ -71,7 +71,10 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 }
 
 func (c *Client) login() error {
-	loginBody := fmt.Sprintf("AppKey=%s&AppSecret=%s", c.credential.appKey, c.credential.appSecret)
+	form := url.Values{}
+	form.Set("AppKey", c.credential.appKey)
+	form.Set("AppSecret", c.credential.appSecret)
+	loginBody := form.Encode()
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
 	if err != nil {

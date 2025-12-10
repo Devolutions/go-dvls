@@ -109,6 +109,125 @@ func (e *Entry) GetCredentialPrivateKeyData() (*EntryCredentialPrivateKeyData, b
 	return data, ok
 }
 
+// ToCredentialMap flattens a credential entry into a map of fields keyed by a stable name.
+// It always includes "entry-id" and "entry-name" and then subtype-specific keys.
+func (e *Entry) ToCredentialMap() (map[string]string, error) {
+	if e.GetType() != EntryCredentialType {
+		return nil, fmt.Errorf("unsupported entry type (%s). Only %s is supported", e.GetType(), EntryCredentialType)
+	}
+
+	secretMap := map[string]string{
+		"entry-id":   e.Id,
+		"entry-name": e.Name,
+	}
+
+	switch e.SubType {
+	case EntryCredentialSubTypeDefault:
+		if data, ok := e.GetCredentialDefaultData(); ok {
+			if data.Username != "" {
+				secretMap["username"] = data.Username
+			}
+			if data.Password != "" {
+				secretMap["password"] = data.Password
+			}
+			if data.Domain != "" {
+				secretMap["domain"] = data.Domain
+			}
+		}
+
+	case EntryCredentialSubTypeAccessCode:
+		if data, ok := e.GetCredentialAccessCodeData(); ok {
+			if data.Password != "" {
+				secretMap["password"] = data.Password
+			}
+		}
+
+	case EntryCredentialSubTypeApiKey:
+		if data, ok := e.GetCredentialApiKeyData(); ok {
+			if data.ApiId != "" {
+				secretMap["api-id"] = data.ApiId
+			}
+			if data.ApiKey != "" {
+				secretMap["api-key"] = data.ApiKey
+			}
+			if data.TenantId != "" {
+				secretMap["tenant-id"] = data.TenantId
+			}
+		}
+
+	case EntryCredentialSubTypeAzureServicePrincipal:
+		if data, ok := e.GetCredentialAzureServicePrincipalData(); ok {
+			if data.ClientId != "" {
+				secretMap["client-id"] = data.ClientId
+			}
+			if data.ClientSecret != "" {
+				secretMap["client-secret"] = data.ClientSecret
+			}
+			if data.TenantId != "" {
+				secretMap["tenant-id"] = data.TenantId
+			}
+		}
+
+	case EntryCredentialSubTypeConnectionString:
+		if data, ok := e.GetCredentialConnectionStringData(); ok {
+			if data.ConnectionString != "" {
+				secretMap["connection-string"] = data.ConnectionString
+			}
+		}
+
+	case EntryCredentialSubTypePrivateKey:
+		if data, ok := e.GetCredentialPrivateKeyData(); ok {
+			if data.Username != "" {
+				secretMap["username"] = data.Username
+			}
+			if data.Password != "" {
+				secretMap["password"] = data.Password
+			}
+			if data.PrivateKey != "" {
+				secretMap["private-key"] = data.PrivateKey
+			}
+			if data.PublicKey != "" {
+				secretMap["public-key"] = data.PublicKey
+			}
+			if data.Passphrase != "" {
+				secretMap["passphrase"] = data.Passphrase
+			}
+		}
+
+	default:
+		return nil, fmt.Errorf("unsupported credential subtype (%s)", e.SubType)
+	}
+
+	return secretMap, nil
+}
+
+// SetCredentialSecret mutates the Entry data to update the secret value for supported subtypes.
+// It preserves existing fields and only updates the password/secret field.
+func (e *Entry) SetCredentialSecret(secret string) error {
+	if e.GetType() != EntryCredentialType {
+		return fmt.Errorf("unsupported entry type (%s). Only %s is supported", e.GetType(), EntryCredentialType)
+	}
+
+	switch e.SubType {
+	case EntryCredentialSubTypeDefault:
+		if data, ok := e.GetCredentialDefaultData(); ok {
+			data.Password = secret
+		} else {
+			e.Data = &EntryCredentialDefaultData{Password: secret}
+		}
+	case EntryCredentialSubTypeAccessCode:
+		if data, ok := e.GetCredentialAccessCodeData(); ok {
+			data.Password = secret
+		} else {
+			e.Data = &EntryCredentialAccessCodeData{Password: secret}
+		}
+	default:
+		return fmt.Errorf("cannot set secret for credential subtype (%s)", e.SubType)
+	}
+
+	return nil
+}
+
 // validateEntry checks if an Entry has the required fields and valid type/subtype.
 func (c *EntryCredentialService) validateEntry(entry *Entry) error {
 	if entry.VaultId == "" {

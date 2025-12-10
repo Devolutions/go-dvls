@@ -87,21 +87,28 @@ func (z *ServerTime) UnmarshalJSON(d []byte) error {
 		return nil
 	}
 
-	dateParsed, err := time.Parse(serverTimeLayout, s)
-	if err != nil {
-		return err
+	for _, layout := range serverTimeLayouts {
+		if dateParsed, err := time.Parse(layout, s); err == nil {
+			z.Time = dateParsed
+			return nil
+		}
 	}
 
-	z.Time = dateParsed
-	return nil
+	return fmt.Errorf("cannot parse server time %q", s)
 }
 
 const (
 	serverPublicInfoEndpoint  string = "api/public-instance-information"
 	serverPrivateInfoEndpoint string = "api/private-instance-information"
 	serverTimezonesEndpoint   string = "/api/configuration/timezones"
-	serverTimeLayout          string = "2006-01-02T15:04:05"
 )
+
+var serverTimeLayouts = []string{
+	time.RFC3339Nano,
+	"2006-01-02T15:04:05.9999999Z07:00",
+	"2006-01-02T15:04:05.9999999Z",
+	"2006-01-02T15:04:05",
+}
 
 // GetPublicServerInfo returns Server that contains public information on the DVLS instance.
 func (c *Client) GetPublicServerInfo() (Server, error) {
