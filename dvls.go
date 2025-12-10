@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,8 +17,10 @@ type Response struct {
 }
 
 type RequestError struct {
-	Url string
-	Err error
+	Url        string
+	StatusCode int
+	Body       []byte
+	Err        error
 }
 
 const defaultContentType string = "application/json"
@@ -28,7 +31,21 @@ type RequestOptions struct {
 }
 
 func (e RequestError) Error() string {
+	if e.StatusCode != 0 {
+		return fmt.Sprintf("error while submitting request on url %s (status %d). error: %s", e.Url, e.StatusCode, e.Err.Error())
+	}
+
 	return fmt.Sprintf("error while submitting request on url %s. error: %s", e.Url, e.Err.Error())
+}
+
+// IsNotFound reports whether the error is a DVLS RequestError with an HTTP 404 status code.
+func IsNotFound(err error) bool {
+	var reqErr *RequestError
+	if errors.As(err, &reqErr) {
+		return reqErr.StatusCode == http.StatusNotFound
+	}
+
+	return false
 }
 
 // Request returns a Response that contains the HTTP response body in bytes, the result code and result message.
@@ -74,9 +91,12 @@ func (c *Client) rawRequest(url string, reqMethod string, contentType string, re
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("error while submitting request. error: %w", err), Url: url}
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return Response{}, &RequestError{Err: fmt.Errorf("unexpected status code %d", resp.StatusCode), Url: url}
+		body, _ := io.ReadAll(resp.Body)
+
+		return Response{}, &RequestError{Err: fmt.Errorf("unexpected status code %d", resp.StatusCode), Url: url, StatusCode: resp.StatusCode, Body: body}
 	}
 
 	var response Response
@@ -84,7 +104,6 @@ func (c *Client) rawRequest(url string, reqMethod string, contentType string, re
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to read response body. error: %w", err), Url: url}
 	}
-	defer resp.Body.Close()
 
 	if !opts.RawBody && len(response.Response) > 0 {
 		err = json.Unmarshal(response.Response, &response)
