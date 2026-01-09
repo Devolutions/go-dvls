@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,13 +50,20 @@ func IsNotFound(err error) bool {
 }
 
 // Request returns a Response that contains the HTTP response body in bytes, the result code and result message.
+// For context support, use RequestWithContext instead.
 func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
-	islogged, err := c.isLogged()
+	return c.RequestWithContext(context.Background(), url, reqMethod, reqBody, options...)
+}
+
+// RequestWithContext returns a Response that contains the HTTP response body in bytes, the result code and result message.
+// The provided context can be used to cancel the request.
+func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
+	islogged, err := c.isLoggedWithContext(ctx)
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status. error: %w", err), Url: url}
 	}
 	if !islogged {
-		err := c.login()
+		err := c.loginWithContext(ctx)
 		if err != nil {
 			return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token. error: %w", err), Url: url}
 		}
@@ -66,20 +74,20 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, option
 		opts = options[0]
 	}
 
-	resp, err := c.rawRequest(url, reqMethod, defaultContentType, reqBody, opts)
+	resp, err := c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, reqBody, opts)
 	if err != nil {
 		return Response{}, err
 	}
 	return resp, nil
 }
 
-func (c *Client) rawRequest(url string, reqMethod string, contentType string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
+func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMethod string, contentType string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
 	var opts RequestOptions
 	if len(options) > 0 {
 		opts = options[0]
 	}
 
-	req, err := http.NewRequest(reqMethod, url, reqBody)
+	req, err := http.NewRequestWithContext(ctx, reqMethod, url, reqBody)
 	if err != nil {
 		return Response{}, &RequestError{Err: fmt.Errorf("failed to make request. error: %w", err), Url: url}
 	}

@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -71,6 +72,10 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 }
 
 func (c *Client) login() error {
+	return c.loginWithContext(context.Background())
+}
+
+func (c *Client) loginWithContext(ctx context.Context) error {
 	form := url.Values{}
 	form.Set("AppKey", c.credential.appKey)
 	form.Set("AppSecret", c.credential.appSecret)
@@ -81,7 +86,7 @@ func (c *Client) login() error {
 		return fmt.Errorf("failed to build login url. error: %w", err)
 	}
 
-	resp, err := c.rawRequest(reqUrl, http.MethodPost, loginContentType, bytes.NewBufferString(loginBody))
+	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodPost, loginContentType, bytes.NewBufferString(loginBody))
 	if err != nil {
 		return fmt.Errorf("error while submitting login request. error: %w", err)
 	}
@@ -98,12 +103,16 @@ func (c *Client) login() error {
 }
 
 func (c *Client) isLogged() (bool, error) {
+	return c.isLoggedWithContext(context.Background())
+}
+
+func (c *Client) isLoggedWithContext(ctx context.Context) (bool, error) {
 	reqUrl, err := url.JoinPath(c.baseUri, isLoggedEndpoint)
 	if err != nil {
 		return false, fmt.Errorf("failed to build isLogged url. error: %w", err)
 	}
 
-	resp, err := c.rawRequest(reqUrl, http.MethodGet, defaultContentType, nil)
+	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodGet, defaultContentType, nil)
 	if err != nil && !strings.Contains(err.Error(), "json: cannot unmarshal bool into Go value") {
 		return false, fmt.Errorf("error while submitting isLogged request. error: %w", err)
 	}

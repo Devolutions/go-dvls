@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -140,13 +141,19 @@ func (e *EntryCertificate) UnmarshalJSON(d []byte) error {
 
 // Get returns a single Certificate specified by entryId.
 func (c *EntryCertificateService) Get(entryId string) (EntryCertificate, error) {
+	return c.GetWithContext(context.Background(), entryId)
+}
+
+// GetWithContext returns a single Certificate specified by entryId.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) GetWithContext(ctx context.Context, entryId string) (EntryCertificate, error) {
 	var entry EntryCertificate
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -163,12 +170,18 @@ func (c *EntryCertificateService) Get(entryId string) (EntryCertificate, error) 
 
 // GetFileContent returns the content of the file specified by entryId.
 func (c *EntryCertificateService) GetFileContent(entryId string) ([]byte, error) {
+	return c.GetFileContentWithContext(context.Background(), entryId)
+}
+
+// GetFileContentWithContext returns the content of the file specified by entryId.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) GetFileContentWithContext(ctx context.Context, entryId string) ([]byte, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryConnectionsEndpoint, entryId, "document")
 	if err != nil {
 		return nil, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodGet, nil, RequestOptions{RawBody: true})
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil, RequestOptions{RawBody: true})
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching entry content. error: %w", err)
 	}
@@ -178,13 +191,19 @@ func (c *EntryCertificateService) GetFileContent(entryId string) ([]byte, error)
 
 // GetPassword returns the password of the entry specified by entry.
 func (c *EntryCertificateService) GetPassword(entry EntryCertificate) (EntryCertificate, error) {
+	return c.GetPasswordWithContext(context.Background(), entry)
+}
+
+// GetPasswordWithContext returns the password of the entry specified by entry.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) GetPasswordWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
 	var entryPassword EntryCertificate
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -203,15 +222,27 @@ func (c *EntryCertificateService) GetPassword(entry EntryCertificate) (EntryCert
 
 // NewURL creates a new EntryCertificate based on entry. Will use the url as the file content.
 func (c *EntryCertificateService) NewURL(entry EntryCertificate) (EntryCertificate, error) {
-	return c.new(entry, nil)
+	return c.NewURLWithContext(context.Background(), entry)
+}
+
+// NewURLWithContext creates a new EntryCertificate based on entry. Will use the url as the file content.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) NewURLWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
+	return c.newWithContext(ctx, entry, nil)
 }
 
 // NewFile creates a new EntryCertificate based on entry. Will upload the file content to the DVLS server.
 func (c *EntryCertificateService) NewFile(entry EntryCertificate, content []byte) (EntryCertificate, error) {
-	return c.new(entry, content)
+	return c.NewFileWithContext(context.Background(), entry, content)
 }
 
-func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (EntryCertificate, error) {
+// NewFileWithContext creates a new EntryCertificate based on entry. Will upload the file content to the DVLS server.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) NewFileWithContext(ctx context.Context, entry EntryCertificate, content []byte) (EntryCertificate, error) {
+	return c.newWithContext(ctx, entry, content)
+}
+
+func (c *EntryCertificateService) newWithContext(ctx context.Context, entry EntryCertificate, content []byte) (EntryCertificate, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
@@ -229,7 +260,7 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 		return EntryCertificate{}, fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while creating entry. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -249,12 +280,12 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 			IsPrivate: true,
 		}
 
-		entryAttachment, err := c.client.newAttachmentRequest(attachment)
+		entryAttachment, err := c.client.newAttachmentRequest(ctx, attachment)
 		if err != nil {
 			return EntryCertificate{}, fmt.Errorf("error while creating entry attachment. error: %w", err)
 		}
 
-		err = c.client.uploadAttachment(content, entryAttachment)
+		err = c.client.uploadAttachment(ctx, content, entryAttachment)
 		if err != nil {
 			return EntryCertificate{}, fmt.Errorf("error while uploading attachment. error: %w", err)
 		}
@@ -265,7 +296,13 @@ func (c *EntryCertificateService) new(entry EntryCertificate, content []byte) (E
 
 // Update updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
-	oldEntry, err := c.Get(entry.Id)
+	return c.UpdateWithContext(context.Background(), entry)
+}
+
+// UpdateWithContext updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
+	oldEntry, err := c.GetWithContext(ctx, entry.Id)
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	}
@@ -283,7 +320,7 @@ func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertifica
 		return EntryCertificate{}, fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return EntryCertificate{}, fmt.Errorf("error while creating entry. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -300,12 +337,18 @@ func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertifica
 
 // Delete deletes an EntryCertificate based on entryId.
 func (c *EntryCertificateService) Delete(entryId string) error {
+	return c.DeleteWithContext(context.Background(), entryId)
+}
+
+// DeleteWithContext deletes an EntryCertificate based on entryId.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) DeleteWithContext(ctx context.Context, entryId string) error {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
 	if err != nil {
 		return fmt.Errorf("failed to delete entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodDelete, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting entry. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {

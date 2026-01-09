@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -112,13 +113,19 @@ var serverTimeLayouts = []string{
 
 // GetPublicServerInfo returns Server that contains public information on the DVLS instance.
 func (c *Client) GetPublicServerInfo() (Server, error) {
+	return c.GetPublicServerInfoWithContext(context.Background())
+}
+
+// GetPublicServerInfoWithContext returns Server that contains public information on the DVLS instance.
+// The provided context can be used to cancel the request.
+func (c *Client) GetPublicServerInfoWithContext(ctx context.Context) (Server, error) {
 	var server Server
 	reqUrl, err := url.JoinPath(c.baseUri, serverPublicInfoEndpoint)
 	if err != nil {
 		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -135,13 +142,19 @@ func (c *Client) GetPublicServerInfo() (Server, error) {
 
 // GetPrivateServerInfo returns Server that contains private information on the DVLS instance (need authentication).
 func (c *Client) GetPrivateServerInfo() (Server, error) {
+	return c.GetPrivateServerInfoWithContext(context.Background())
+}
+
+// GetPrivateServerInfoWithContext returns Server that contains private information on the DVLS instance (need authentication).
+// The provided context can be used to cancel the request.
+func (c *Client) GetPrivateServerInfoWithContext(ctx context.Context) (Server, error) {
 	var server Server
 	reqUrl, err := url.JoinPath(c.baseUri, serverPrivateInfoEndpoint)
 	if err != nil {
 		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -159,13 +172,20 @@ func (c *Client) GetPrivateServerInfo() (Server, error) {
 // GetServerTimezones returns an array of Timezone that contains all of the available timezones on
 // the DVLS instance.
 func (c *Client) GetServerTimezones() ([]Timezone, error) {
+	return c.GetServerTimezonesWithContext(context.Background())
+}
+
+// GetServerTimezonesWithContext returns an array of Timezone that contains all of the available timezones on
+// the DVLS instance.
+// The provided context can be used to cancel the request.
+func (c *Client) GetServerTimezonesWithContext(ctx context.Context) ([]Timezone, error) {
 	var timezones []Timezone
 	reqUrl, err := url.JoinPath(c.baseUri, serverTimezonesEndpoint)
 	if err != nil {
 		return nil, fmt.Errorf("failed to build timezone info url. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching timezones. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {

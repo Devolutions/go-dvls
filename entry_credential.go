@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -263,13 +264,25 @@ func (c *EntryCredentialService) validateEntry(entry *Entry) error {
 	return nil
 }
 
-// Get returns a single EntryCredential
+// Get returns a single EntryCredential based on the entry's VaultId and Id.
 func (c *EntryCredentialService) Get(entry Entry) (Entry, error) {
-	return c.GetById(entry.VaultId, entry.Id)
+	return c.GetWithContext(context.Background(), entry)
 }
 
-// Get returns a single EntryCredential based on vault Id and entry Id.
+// GetWithContext returns a single EntryCredential based on the entry's VaultId and Id.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) GetWithContext(ctx context.Context, entry Entry) (Entry, error) {
+	return c.GetByIdWithContext(ctx, entry.VaultId, entry.Id)
+}
+
+// GetById returns a single EntryCredential based on vault Id and entry Id.
 func (c *EntryCredentialService) GetById(vaultId string, entryId string) (Entry, error) {
+	return c.GetByIdWithContext(context.Background(), vaultId, entryId)
+}
+
+// GetByIdWithContext returns a single EntryCredential based on vault Id and entry Id.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) GetByIdWithContext(ctx context.Context, vaultId string, entryId string) (Entry, error) {
 	if vaultId == "" || entryId == "" {
 		return Entry{}, fmt.Errorf("both entry Id and vault Id are required")
 	}
@@ -282,7 +295,7 @@ func (c *EntryCredentialService) GetById(vaultId string, entryId string) (Entry,
 		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while fetching entry. error: %w", err)
 	}
@@ -297,8 +310,14 @@ func (c *EntryCredentialService) GetById(vaultId string, entryId string) (Entry,
 	return entry, nil
 }
 
-// New creates a new EntryCredential
+// New creates a new EntryCredential and returns the new entry's Id.
 func (c *EntryCredentialService) New(entry Entry) (string, error) {
+	return c.NewWithContext(context.Background(), entry)
+}
+
+// NewWithContext creates a new EntryCredential and returns the new entry's Id.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) NewWithContext(ctx context.Context, entry Entry) (string, error) {
 	if err := c.validateEntry(&entry); err != nil {
 		return "", err
 	}
@@ -332,7 +351,7 @@ func (c *EntryCredentialService) New(entry Entry) (string, error) {
 		return "", fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, bytes.NewBuffer(body))
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(body))
 	if err != nil {
 		return "", fmt.Errorf("error while creating entry. error: %w", err)
 	}
@@ -348,8 +367,14 @@ func (c *EntryCredentialService) New(entry Entry) (string, error) {
 	return newEntryResponse.Id, nil
 }
 
-// Update updates an EntryCredential
+// Update updates an EntryCredential and returns the updated entry.
 func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
+	return c.UpdateWithContext(context.Background(), entry)
+}
+
+// UpdateWithContext updates an EntryCredential and returns the updated entry.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) UpdateWithContext(ctx context.Context, entry Entry) (Entry, error) {
 	if err := c.validateEntry(&entry); err != nil {
 		return Entry{}, err
 	}
@@ -383,12 +408,12 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 		return Entry{}, fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	_, err = c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(body))
+	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(body))
 	if err != nil {
 		return Entry{}, fmt.Errorf("error while updating entry. error: %w", err)
 	}
 
-	entry, err = c.GetById(entry.VaultId, entry.Id)
+	entry, err = c.GetByIdWithContext(ctx, entry.VaultId, entry.Id)
 	if err != nil {
 		return Entry{}, fmt.Errorf("update succeeded but failed to fetch updated entry: %w", err)
 	}
@@ -396,13 +421,25 @@ func (c *EntryCredentialService) Update(entry Entry) (Entry, error) {
 	return entry, nil
 }
 
-// Delete deletes an entry
+// Delete deletes an entry based on the entry's VaultId and Id.
 func (c *EntryCredentialService) Delete(e Entry) error {
-	return c.DeleteById(e.VaultId, e.Id)
+	return c.DeleteWithContext(context.Background(), e)
 }
 
-// Delete deletes an entry based on vault Id and entry Id
+// DeleteWithContext deletes an entry based on the entry's VaultId and Id.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) DeleteWithContext(ctx context.Context, e Entry) error {
+	return c.DeleteByIdWithContext(ctx, e.VaultId, e.Id)
+}
+
+// DeleteById deletes an entry based on vault Id and entry Id.
 func (c *EntryCredentialService) DeleteById(vaultId string, entryId string) error {
+	return c.DeleteByIdWithContext(context.Background(), vaultId, entryId)
+}
+
+// DeleteByIdWithContext deletes an entry based on vault Id and entry Id.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) DeleteByIdWithContext(ctx context.Context, vaultId string, entryId string) error {
 	if vaultId == "" || entryId == "" {
 		return fmt.Errorf("both entry Id and vault Id are required")
 	}
@@ -413,7 +450,7 @@ func (c *EntryCredentialService) DeleteById(vaultId string, entryId string) erro
 		return fmt.Errorf("failed to build delete entry url. error: %w", err)
 	}
 
-	_, err = c.client.Request(reqUrl, http.MethodDelete, nil)
+	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting entry. error: %w", err)
 	}

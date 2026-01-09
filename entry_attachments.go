@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -39,7 +40,7 @@ func (e *EntryAttachment) UnmarshalJSON(d []byte) error {
 
 const attachmentEndpoint = "/api/attachment"
 
-func (c *Client) newAttachmentRequest(attachment EntryAttachment) (string, error) {
+func (c *Client) newAttachmentRequest(ctx context.Context, attachment EntryAttachment) (string, error) {
 	reqUrl, err := url.JoinPath(c.baseUri, attachmentEndpoint, "save?=&private=false&useSensitiveMode=true")
 	if err != nil {
 		return "", fmt.Errorf("failed to build attachment url. error: %w", err)
@@ -55,7 +56,7 @@ func (c *Client) newAttachmentRequest(attachment EntryAttachment) (string, error
 		return "", fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
+	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
 		return "", fmt.Errorf("error while submitting entry attachment request. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -70,7 +71,7 @@ func (c *Client) newAttachmentRequest(attachment EntryAttachment) (string, error
 	return attachment.Id, nil
 }
 
-func (c *Client) uploadAttachment(fileBytes []byte, attachmentId string) error {
+func (c *Client) uploadAttachment(ctx context.Context, fileBytes []byte, attachmentId string) error {
 	reqUrl, err := url.JoinPath(c.baseUri, attachmentEndpoint, attachmentId, "document")
 	if err != nil {
 		return fmt.Errorf("failed to build attachment url. error: %w", err)
@@ -78,7 +79,7 @@ func (c *Client) uploadAttachment(fileBytes []byte, attachmentId string) error {
 
 	contentType := http.DetectContentType(fileBytes)
 
-	resp, err := c.Request(reqUrl, http.MethodPost, bytes.NewBuffer(fileBytes), RequestOptions{ContentType: contentType})
+	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(fileBytes), RequestOptions{ContentType: contentType})
 	if err != nil {
 		return fmt.Errorf("error while uploading entry attachment. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
