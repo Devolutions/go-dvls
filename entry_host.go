@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -161,6 +162,12 @@ func (s EntryHostAuthDetails) MarshalJSON() ([]byte, error) {
 
 // GetHostDetails returns entry with the entry.HostDetails.Password field.
 func (c *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
+	return c.GetHostDetailsWithContext(context.Background(), entry)
+}
+
+// GetHostDetailsWithContext returns entry with the entry.HostDetails.Password field.
+// The provided context can be used to cancel the request.
+func (c *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry EntryHost) (EntryHost, error) {
 	var respData struct {
 		Data string `json:"data"`
 	}
@@ -170,7 +177,7 @@ func (c *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
 		return EntryHost{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
 	if err != nil {
 		return EntryHost{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -206,6 +213,13 @@ func (c *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
 // Get returns a single Entry specified by entryId. Call GetHostDetails with
 // the returned Entry to fetch the password.
 func (s *EntryHostService) Get(entryId string) (EntryHost, error) {
+	return s.GetWithContext(context.Background(), entryId)
+}
+
+// GetWithContext returns a single Entry specified by entryId. Call GetHostDetailsWithContext with
+// the returned Entry to fetch the password.
+// The provided context can be used to cancel the request.
+func (s *EntryHostService) GetWithContext(ctx context.Context, entryId string) (EntryHost, error) {
 	var respData struct {
 		Data EntryHost `json:"data"`
 	}
@@ -215,7 +229,7 @@ func (s *EntryHostService) Get(entryId string) (EntryHost, error) {
 		return EntryHost{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
-	resp, err := s.client.Request(reqUrl, http.MethodGet, nil)
+	resp, err := s.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return EntryHost{}, fmt.Errorf("error fetching entry: %w", err)
 	}

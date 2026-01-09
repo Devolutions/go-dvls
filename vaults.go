@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -124,13 +125,19 @@ const (
 
 // Get returns a single Vault based on vaultId.
 func (c *Vaults) Get(vaultId string) (Vault, error) {
+	return c.GetWithContext(context.Background(), vaultId)
+}
+
+// GetWithContext returns a single Vault based on vaultId.
+// The provided context can be used to cancel the request.
+func (c *Vaults) GetWithContext(ctx context.Context, vaultId string) (Vault, error) {
 	var vault Vault
 	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
 	if err != nil {
 		return Vault{}, fmt.Errorf("failed to build vault url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodGet, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return Vault{}, fmt.Errorf("error while fetching vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -147,6 +154,12 @@ func (c *Vaults) Get(vaultId string) (Vault, error) {
 
 // New creates a new Vault based on vault.
 func (c *Vaults) New(vault Vault, options *VaultOptions) error {
+	return c.NewWithContext(context.Background(), vault, options)
+}
+
+// NewWithContext creates a new Vault based on vault.
+// The provided context can be used to cancel the request.
+func (c *Vaults) NewWithContext(ctx context.Context, vault Vault, options *VaultOptions) error {
 	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to build vault url. error: %w", err)
@@ -164,7 +177,7 @@ func (c *Vaults) New(vault Vault, options *VaultOptions) error {
 		return fmt.Errorf("failed to marshal body. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
 	if err != nil {
 		return fmt.Errorf("error while creating vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -176,12 +189,18 @@ func (c *Vaults) New(vault Vault, options *VaultOptions) error {
 
 // Update updates a Vault based on vault.
 func (c *Vaults) Update(vault Vault, options *VaultOptions) error {
-	_, err := c.client.Vaults.Get(vault.Id)
+	return c.UpdateWithContext(context.Background(), vault, options)
+}
+
+// UpdateWithContext updates a Vault based on vault.
+// The provided context can be used to cancel the request.
+func (c *Vaults) UpdateWithContext(ctx context.Context, vault Vault, options *VaultOptions) error {
+	_, err := c.client.Vaults.GetWithContext(ctx, vault.Id)
 	if err != nil {
 		return fmt.Errorf("error while fetching vault. error: %w", err)
 	}
 
-	err = c.client.Vaults.New(vault, options)
+	err = c.client.Vaults.NewWithContext(ctx, vault, options)
 	if err != nil {
 		return fmt.Errorf("error while updating vault. error: %w", err)
 	}
@@ -191,12 +210,18 @@ func (c *Vaults) Update(vault Vault, options *VaultOptions) error {
 
 // Delete deletes a Vault based on vaultId.
 func (c *Vaults) Delete(vaultId string) error {
+	return c.DeleteWithContext(context.Background(), vaultId)
+}
+
+// DeleteWithContext deletes a Vault based on vaultId.
+// The provided context can be used to cancel the request.
+func (c *Vaults) DeleteWithContext(ctx context.Context, vaultId string) error {
 	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
 	if err != nil {
 		return fmt.Errorf("failed to delete vault url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodDelete, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting vault. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -208,12 +233,18 @@ func (c *Vaults) Delete(vaultId string) error {
 
 // ValidatePassword validates a Vault password based on vaultId and password.
 func (c *Vaults) ValidatePassword(vaultId string, password string) (bool, error) {
+	return c.ValidatePasswordWithContext(context.Background(), vaultId, password)
+}
+
+// ValidatePasswordWithContext validates a Vault password based on vaultId and password.
+// The provided context can be used to cancel the request.
+func (c *Vaults) ValidatePasswordWithContext(ctx context.Context, vaultId string, password string) (bool, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId, "login")
 	if err != nil {
 		return false, fmt.Errorf("failed to build vault url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, bytes.NewBufferString(fmt.Sprintf("\"%s\"", password)))
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBufferString(fmt.Sprintf("\"%s\"", password)))
 	if err != nil {
 		return false, fmt.Errorf("error while fetching vault. error: %w", err)
 	} else if resp.Result == uint8(SaveResultAccessDenied) {

@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -165,6 +166,12 @@ func (s EntryWebsiteAuthDetails) MarshalJSON() ([]byte, error) {
 
 // GetWebsiteDetails returns entry with the entry.WebsiteDetails.Password field.
 func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsite, error) {
+	return c.GetWebsiteDetailsWithContext(context.Background(), entry)
+}
+
+// GetWebsiteDetailsWithContext returns entry with the entry.WebsiteDetails.Password field.
+// The provided context can be used to cancel the request.
+func (c *EntryWebsiteService) GetWebsiteDetailsWithContext(ctx context.Context, entry EntryWebsite) (EntryWebsite, error) {
 	var respData struct {
 		Data string `json:"data"`
 	}
@@ -174,7 +181,7 @@ func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsit
 		return EntryWebsite{}, fmt.Errorf("failed to build entry url. error: %w", err)
 	}
 
-	resp, err := c.client.Request(reqUrl, http.MethodPost, nil)
+	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
 	if err != nil {
 		return EntryWebsite{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
@@ -210,6 +217,13 @@ func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsit
 // Get returns a single Entry specified by entryId. Call GetWebsiteDetails with
 // the returned Entry to fetch the password.
 func (s *EntryWebsiteService) Get(entryId string) (EntryWebsite, error) {
+	return s.GetWithContext(context.Background(), entryId)
+}
+
+// GetWithContext returns a single Entry specified by entryId. Call GetWebsiteDetailsWithContext with
+// the returned Entry to fetch the password.
+// The provided context can be used to cancel the request.
+func (s *EntryWebsiteService) GetWithContext(ctx context.Context, entryId string) (EntryWebsite, error) {
 	var respData struct {
 		Data EntryWebsite `json:"data"`
 	}
@@ -219,7 +233,7 @@ func (s *EntryWebsiteService) Get(entryId string) (EntryWebsite, error) {
 		return EntryWebsite{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
-	resp, err := s.client.Request(reqUrl, http.MethodGet, nil)
+	resp, err := s.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
 		return EntryWebsite{}, fmt.Errorf("error fetching entry: %w", err)
 	}
