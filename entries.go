@@ -1,8 +1,12 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -12,6 +16,22 @@ const (
 	entryBasePublicEndpoint  string = "/api/v1/vault/{vaultId}/entry"
 	entryPublicEndpoint      string = "/api/v1/vault/{vaultId}/entry/{id}"
 )
+
+// ErrUnsupportedEntryType is returned when an entry type/subtype is not supported by this client.
+type ErrUnsupportedEntryType struct {
+	Type    string
+	SubType string
+}
+
+func (e ErrUnsupportedEntryType) Error() string {
+	return fmt.Sprintf("unsupported entry type/subtype: %s/%s", e.Type, e.SubType)
+}
+
+// IsUnsupportedEntryType returns true if the error is an ErrUnsupportedEntryType.
+func IsUnsupportedEntryType(err error) bool {
+	var unsupportedErr ErrUnsupportedEntryType
+	return errors.As(err, &unsupportedErr)
+}
 
 type Entries struct {
 	Certificate *EntryCertificateService
@@ -73,7 +93,7 @@ func (e *Entry) UnmarshalJSON(data []byte) error {
 	key := fmt.Sprintf("%s/%s", raw.Type, raw.SubType)
 	factory, ok := entryFactories[key]
 	if !ok {
-		return fmt.Errorf("unsupported entry type/subtype: %s", key)
+		return ErrUnsupportedEntryType{Type: raw.Type, SubType: raw.SubType}
 	}
 
 	dataStruct := factory()
@@ -111,4 +131,68 @@ func entryPublicEndpointReplacer(vaultId string, entryId string) string {
 func entryPublicBaseEndpointReplacer(vaultId string) string {
 	replacer := strings.NewReplacer("{vaultId}", vaultId)
 	return replacer.Replace(entryBasePublicEndpoint)
+}
+
+// entryListRawResponse represents the raw paginated response from the entry list endpoint.
+type entryListRawResponse struct {
+	Data []json.RawMessage `json:"data"`
+}
+
+// getEntriesOptions contains optional filters for listing entries.
+type getEntriesOptions struct {
+	Name string
+	Path string
+}
+
+// getEntries returns a list of entries from a vault with optional filters.
+// Entries with unsupported types are skipped.
+func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntriesOptions) ([]Entry, error) {
+	if vaultId == "" {
+		return nil, fmt.Errorf("vaultId is required")
+	}
+
+	baseEndpoint := entryPublicBaseEndpointReplacer(vaultId)
+	reqUrl, err := url.JoinPath(c.baseUri, baseEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build entry url: %w", err)
+	}
+
+	parsedUrl, err := url.Parse(reqUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse entry url: %w", err)
+	}
+
+	q := parsedUrl.Query()
+	if opts.Name != "" {
+		q.Set("name", opts.Name)
+	}
+	if opts.Path != "" {
+		q.Set("path", opts.Path)
+	}
+	parsedUrl.RawQuery = q.Encode()
+
+	resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching entries: %w", err)
+	}
+
+	var rawResp entryListRawResponse
+	if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal entry list response: %w", err)
+	}
+
+	var entries []Entry
+	for _, raw := range rawResp.Data {
+		var entry Entry
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			if IsUnsupportedEntryType(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to unmarshal entry: %w", err)
+		}
+		entry.VaultId = vaultId
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
 }

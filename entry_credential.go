@@ -457,3 +457,30 @@ func (c *EntryCredentialService) DeleteByIdWithContext(ctx context.Context, vaul
 
 	return nil
 }
+
+// GetEntries returns a list of credential entries from a vault with optional name and path filters.
+func (c *EntryCredentialService) GetEntries(vaultId, name, path string) ([]Entry, error) {
+	return c.GetEntriesWithContext(context.Background(), vaultId, name, path)
+}
+
+// GetEntriesWithContext returns a list of credential entries from a vault with optional name and path filters.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaultId, name, path string) ([]Entry, error) {
+	entries, err := c.client.getEntries(ctx, vaultId, getEntriesOptions{
+		Name: name,
+		Path: path,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Filter only Credential type entries
+	var credentials []Entry
+	for _, entry := range entries {
+		if entry.GetType() == EntryCredentialType {
+			credentials = append(credentials, entry)
+		}
+	}
+
+	return credentials, nil
+}

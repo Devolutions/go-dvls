@@ -416,6 +416,99 @@ func test_UpdateUserEntry(t *testing.T) {
 	}
 }
 
+func Test_GetEntries(t *testing.T) {
+	testPath := "go-dvls\\getentries-test"
+	testBaseName := "TestGetEntries"
+
+	// Create 3 entries with similar names in the same path
+	entriesToCreate := []Entry{
+		{
+			VaultId: testVaultId,
+			Name:    testBaseName + "One",
+			Path:    testPath,
+			Type:    EntryCredentialType,
+			SubType: EntryCredentialSubTypeDefault,
+			Data:    &EntryCredentialDefaultData{Username: "user1", Password: "pass1"},
+		},
+		{
+			VaultId: testVaultId,
+			Name:    testBaseName + "Two",
+			Path:    testPath,
+			Type:    EntryCredentialType,
+			SubType: EntryCredentialSubTypeDefault,
+			Data:    &EntryCredentialDefaultData{Username: "user2", Password: "pass2"},
+		},
+		{
+			VaultId: testVaultId,
+			Name:    testBaseName + "Three",
+			Path:    testPath,
+			Type:    EntryCredentialType,
+			SubType: EntryCredentialSubTypeDefault,
+			Data:    &EntryCredentialDefaultData{Username: "user3", Password: "pass3"},
+		},
+	}
+
+	var createdIds []string
+	for _, entry := range entriesToCreate {
+		id, err := testClient.Entries.Credential.New(entry)
+		if err != nil {
+			t.Fatalf("Failed to create entry %s: %v", entry.Name, err)
+		}
+		createdIds = append(createdIds, id)
+	}
+
+	// Cleanup: delete all created entries at the end
+	defer func() {
+		for _, id := range createdIds {
+			_ = testClient.Entries.Credential.DeleteById(testVaultId, id)
+		}
+	}()
+
+	// Test 1: GetEntries with path filter should return all 3 entries
+	entries, err := testClient.Entries.Credential.GetEntries(testVaultId, "", testPath)
+	if err != nil {
+		t.Fatalf("GetEntries failed: %v", err)
+	}
+
+	if len(entries) != 3 {
+		t.Fatalf("Expected 3 entries, got %d", len(entries))
+	}
+
+	// Test 2: GetEntries with name filter should return 1 entry
+	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, testBaseName+"One", "")
+	if err != nil {
+		t.Fatalf("GetEntries with name filter failed: %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("Expected 1 entry with name filter, got %d", len(entries))
+	}
+
+	if entries[0].Name != testBaseName+"One" {
+		t.Fatalf("Expected entry name %s, got %s", testBaseName+"One", entries[0].Name)
+	}
+
+	// Test 3: GetEntries with name and path filter
+	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, testBaseName+"Two", testPath)
+	if err != nil {
+		t.Fatalf("GetEntries with name and path filter failed: %v", err)
+	}
+
+	if len(entries) != 1 {
+		t.Fatalf("Expected 1 entry with name and path filter, got %d", len(entries))
+	}
+
+	// Test 4: GetEntries with non-existent name should return empty
+	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, "NonExistentEntry", testPath)
+	if err != nil {
+		t.Fatalf("GetEntries with non-existent name failed: %v", err)
+	}
+
+	if len(entries) != 0 {
+		t.Fatalf("Expected 0 entries for non-existent name, got %d", len(entries))
+	}
+}
+
 func test_DeleteUserEntry(t *testing.T) {
 	// Credential/AccessCode
 	err := testClient.Entries.Credential.Delete(*testCredentialAccessCodeEntry)
