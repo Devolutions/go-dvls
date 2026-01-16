@@ -4,6 +4,13 @@
 
 :warning: **This client is a work in progress, expect breaking changes between releases** :warning:
 
+## Compatibility
+
+| go-dvls version | DVLS version   |
+|-----------------|----------------|
+| 0.16.0+         | 2026.x         |
+| 0.15.0          | 2024.x, 2025.x |
+
 Heavily based on the information found on the [Devolutions.Server](https://github.com/Devolutions/devolutions-server/tree/main/Powershell%20Module/Devolutions.Server) powershell module.
 
 ## Usage
