@@ -8,11 +8,11 @@ import (
 
 var (
 	testClient  Client
-	testVaultId string
+	testVaultId string // Used by legacy tests (certificate, host, website)
 )
 
 func TestMain(m *testing.M) {
-	testVaultId = os.Getenv("TEST_VAULT_ID")
+	testVaultId = os.Getenv("TEST_VAULT_ID") // Optional, only for legacy tests
 
 	err := setupTestClient()
 	if err != nil {

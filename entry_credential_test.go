@@ -120,6 +120,8 @@ var credentialTestCases = []credentialTestCase{
 }
 
 func Test_CredentialCRUD(t *testing.T) {
+	vault := createTestVault(t, "credentials")
+
 	for _, tc := range credentialTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testPath := "go-dvls\\credentials\\" + strings.ToLower(tc.name)
@@ -127,7 +129,7 @@ func Test_CredentialCRUD(t *testing.T) {
 			// Create entry
 			t.Logf("Creating %s entry: %q", tc.subType, tc.entryName)
 			entry := Entry{
-				VaultId:     testVaultId,
+				VaultId:     vault.Id,
 				Name:        tc.entryName,
 				Path:        testPath,
 				Type:        EntryCredentialType,
@@ -144,7 +146,7 @@ func Test_CredentialCRUD(t *testing.T) {
 
 			// Get entry
 			t.Logf("Fetching entry %s", id)
-			fetched, err := testClient.Entries.Credential.GetById(testVaultId, id)
+			fetched, err := testClient.Entries.Credential.GetById(vault.Id, id)
 			require.NoError(t, err, "Failed to get %s entry", tc.name)
 			assert.Equal(t, entry.Name, fetched.Name)
 			assert.Equal(t, entry.Description, fetched.Description)
@@ -167,11 +169,11 @@ func Test_CredentialCRUD(t *testing.T) {
 
 			// Delete entry
 			t.Logf("Deleting entry %s", id)
-			err = testClient.Entries.Credential.DeleteById(testVaultId, id)
+			err = testClient.Entries.Credential.DeleteById(vault.Id, id)
 			require.NoError(t, err, "Failed to delete %s entry", tc.name)
 
 			// Verify deletion
-			_, err = testClient.Entries.Credential.GetById(testVaultId, id)
+			_, err = testClient.Entries.Credential.GetById(vault.Id, id)
 			assert.Error(t, err, "Entry should not exist after deletion")
 			t.Logf("Entry deleted and verified")
 		})
@@ -179,12 +181,13 @@ func Test_CredentialCRUD(t *testing.T) {
 }
 
 func Test_GetEntries(t *testing.T) {
+	vault := createTestVault(t, "getentries")
 	testPath := "go-dvls\\getentries"
 
 	// Create 3 test entries - "Server" is exact match, others contain "Server" in name
 	entriesToCreate := []Entry{
 		{
-			VaultId:     testVaultId,
+			VaultId:     vault.Id,
 			Name:        "Server",
 			Path:        testPath,
 			Type:        EntryCredentialType,
@@ -193,7 +196,7 @@ func Test_GetEntries(t *testing.T) {
 			Data:        &EntryCredentialDefaultData{Username: "testuser", Password: "testpass"},
 		},
 		{
-			VaultId:     testVaultId,
+			VaultId:     vault.Id,
 			Name:        "Server Backup",
 			Path:        testPath,
 			Type:        EntryCredentialType,
@@ -202,7 +205,7 @@ func Test_GetEntries(t *testing.T) {
 			Data:        &EntryCredentialDefaultData{Username: "testuser", Password: "testpass"},
 		},
 		{
-			VaultId:     testVaultId,
+			VaultId:     vault.Id,
 			Name:        "Server Production",
 			Path:        testPath,
 			Type:        EntryCredentialType,
@@ -224,14 +227,14 @@ func Test_GetEntries(t *testing.T) {
 
 	// Test 1: GetEntries with path filter should return all 3 entries
 	t.Log("Test 1: GetEntries with path filter")
-	entries, err := testClient.Entries.Credential.GetEntries(testVaultId, "", testPath)
+	entries, err := testClient.Entries.Credential.GetEntries(vault.Id, "", testPath)
 	require.NoError(t, err, "GetEntries failed")
 	assert.Len(t, entries, 3, "Expected 3 entries with path filter")
 	t.Logf("Found %d entries in path %q", len(entries), testPath)
 
 	// Test 2: GetEntries with exact name match - should return only "Server", not "Server Backup" or "Server Production"
 	t.Log("Test 2: GetEntries with exact name match")
-	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, "Server", "")
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Server", "")
 	require.NoError(t, err, "GetEntries with exact name failed")
 	assert.Len(t, entries, 1, "Expected 1 entry with exact name match")
 	if len(entries) > 0 {
@@ -241,14 +244,14 @@ func Test_GetEntries(t *testing.T) {
 
 	// Test 3: GetEntries with name and path filter
 	t.Log("Test 3: GetEntries with name and path filter")
-	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, "Server Backup", testPath)
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Server Backup", testPath)
 	require.NoError(t, err, "GetEntries with name and path filter failed")
 	assert.Len(t, entries, 1, "Expected 1 entry with name and path filter")
 	t.Logf("Found %d entry with combined filters", len(entries))
 
 	// Test 4: GetEntries with non-existent name should return empty
 	t.Log("Test 4: GetEntries with non-existent name")
-	entries, err = testClient.Entries.Credential.GetEntries(testVaultId, "Non Existent Entry", testPath)
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Non Existent Entry", testPath)
 	require.NoError(t, err, "GetEntries with non-existent name failed")
 	assert.Empty(t, entries, "Expected 0 entries for non-existent name")
 	t.Logf("Correctly returned %d entries for non-existent name", len(entries))
@@ -256,7 +259,7 @@ func Test_GetEntries(t *testing.T) {
 	// Cleanup test entries
 	t.Log("Cleaning up test entries")
 	for _, id := range createdIds {
-		err := testClient.Entries.Credential.DeleteById(testVaultId, id)
+		err := testClient.Entries.Credential.DeleteById(vault.Id, id)
 		require.NoError(t, err, "Failed to delete entry %s", id)
 	}
 	t.Log("Cleanup complete")

@@ -226,21 +226,6 @@ const (
 	ServerConnectionSubTypeAppleSafari      ServerConnectionSubType = "Safari"
 )
 
-type VaultVisibility int
-
-const (
-	VaultVisibilityDefault VaultVisibility = 0
-	VaultVisibilityPublic  VaultVisibility = 2
-	VaultVisibilityPrivate VaultVisibility = 3
-)
-
-type VaultSecurityLevel int
-
-const (
-	VaultSecurityLevelStandard VaultSecurityLevel = 0
-	VaultSecurityLevelHigh     VaultSecurityLevel = 1
-)
-
 type EntryCertificateDataMode int
 
 const (

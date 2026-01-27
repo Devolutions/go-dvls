@@ -23,6 +23,10 @@ var (
 )
 
 func Test_EntryCertificate(t *testing.T) {
+	if testVaultId == "" {
+		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	}
+
 	testCertificateFilePath = os.Getenv("TEST_CERTIFICATE_FILE_PATH")
 	testCertificateEntryId = os.Getenv("TEST_CERTIFICATE_ENTRY_ID")
 	testCertificateEntry.Id = testCertificateEntryId

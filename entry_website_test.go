@@ -25,6 +25,10 @@ const (
 )
 
 func Test_EntryWebsite(t *testing.T) {
+	if testVaultId == "" {
+		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	}
+
 	testWebsiteEntryId = os.Getenv("TEST_WEBSITE_ENTRY_ID")
 	testWebsiteEntry.Id = testWebsiteEntryId
 	testWebsiteEntry.VaultId = testVaultId

@@ -23,6 +23,10 @@ const (
 )
 
 func Test_EntryHost(t *testing.T) {
+	if testVaultId == "" {
+		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	}
+
 	testHostEntryId = os.Getenv("TEST_HOST_ENTRY_ID")
 	testHostEntry.Id = testHostEntryId
 	testHostEntry.VaultId = testVaultId
