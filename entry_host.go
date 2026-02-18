@@ -64,7 +64,7 @@ func (e EntryHost) MarshalJSON() ([]byte, error) {
 	raw.Name = e.EntryName
 	sensitiveJson, err := json.Marshal(e.HostDetails)
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal sensitive data. error: %w", err)
+		return nil, fmt.Errorf("failed to marshal sensitive data: %w", err)
 	}
 
 	raw.Data = string(sensitiveJson)
@@ -174,18 +174,18 @@ func (c *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry 
 
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
 	if err != nil {
-		return EntryHost{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
 	if err != nil {
-		return EntryHost{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
+		return EntryHost{}, fmt.Errorf("error while fetching sensitive data: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryHost{}, err
 	}
 
 	if err := json.Unmarshal(resp.Response, &respData); err != nil {
-		return EntryHost{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	var sensitiveDataResponse struct {
@@ -198,7 +198,7 @@ func (c *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry 
 	}
 
 	if err := json.Unmarshal([]byte(respData.Data), &sensitiveDataResponse); err != nil {
-		return EntryHost{}, fmt.Errorf("failed to unmarshal inner data. error: %w", err)
+		return EntryHost{}, fmt.Errorf("failed to unmarshal inner data: %w", err)
 	}
 
 	if sensitiveDataResponse.Data.PasswordItem.HasSensitiveData {

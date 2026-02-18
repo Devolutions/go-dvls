@@ -1,8 +1,12 @@
 package dvls
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -13,11 +17,28 @@ const (
 	entryPublicEndpoint      string = "/api/v1/vault/{vaultId}/entry/{id}"
 )
 
+// ErrUnsupportedEntryType is returned when an entry type/subtype is not supported by this client.
+type ErrUnsupportedEntryType struct {
+	Type    string
+	SubType string
+}
+
+func (e ErrUnsupportedEntryType) Error() string {
+	return fmt.Sprintf("unsupported entry type/subtype: %s/%s", e.Type, e.SubType)
+}
+
+// IsUnsupportedEntryType returns true if the error is an ErrUnsupportedEntryType.
+func IsUnsupportedEntryType(err error) bool {
+	var unsupportedErr ErrUnsupportedEntryType
+	return errors.As(err, &unsupportedErr)
+}
+
 type Entries struct {
 	Certificate *EntryCertificateService
 	Host        *EntryHostService
 	Credential  *EntryCredentialService
 	Website     *EntryWebsiteService
+	Folder      *EntryFolderService
 }
 
 type Entry struct {
@@ -55,6 +76,35 @@ var entryFactories = map[string]func() EntryData{
 	"Credential/ConnectionString":      func() EntryData { return &EntryCredentialConnectionStringData{} },
 	"Credential/Default":               func() EntryData { return &EntryCredentialDefaultData{} },
 	"Credential/PrivateKey":            func() EntryData { return &EntryCredentialPrivateKeyData{} },
+	"Folder/Company":                   func() EntryData { return &EntryFolderData{} },
+	"Folder/Credentials":               func() EntryData { return &EntryFolderData{} },
+	"Folder/Customer":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Database":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Device":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Domain":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Folder":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Identity":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/MacroScriptTools":          func() EntryData { return &EntryFolderData{} },
+	"Folder/Printer":                   func() EntryData { return &EntryFolderData{} },
+	"Folder/Server":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Site":                      func() EntryData { return &EntryFolderData{} },
+	"Folder/SmartFolder":               func() EntryData { return &EntryFolderData{} },
+	"Folder/Software":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Team":                      func() EntryData { return &EntryFolderData{} },
+	"Folder/Workstation":               func() EntryData { return &EntryFolderData{} },
+}
+
+// getSupportedSubTypes extracts all supported subtypes for a given entry type from entryFactories.
+// This ensures a single source of truth for supported entry types/subtypes.
+func getSupportedSubTypes(entryType string) map[string]struct{} {
+	result := make(map[string]struct{})
+	prefix := entryType + "/"
+	for key := range entryFactories {
+		if subType, found := strings.CutPrefix(key, prefix); found {
+			result[subType] = struct{}{}
+		}
+	}
+	return result
 }
 
 func (e *Entry) UnmarshalJSON(data []byte) error {
@@ -73,7 +123,7 @@ func (e *Entry) UnmarshalJSON(data []byte) error {
 	key := fmt.Sprintf("%s/%s", raw.Type, raw.SubType)
 	factory, ok := entryFactories[key]
 	if !ok {
-		return fmt.Errorf("unsupported entry type/subtype: %s", key)
+		return ErrUnsupportedEntryType{Type: raw.Type, SubType: raw.SubType}
 	}
 
 	dataStruct := factory()
@@ -111,4 +161,84 @@ func entryPublicEndpointReplacer(vaultId string, entryId string) string {
 func entryPublicBaseEndpointReplacer(vaultId string) string {
 	replacer := strings.NewReplacer("{vaultId}", vaultId)
 	return replacer.Replace(entryBasePublicEndpoint)
+}
+
+// entryListRawResponse represents the raw paginated response from the entry list endpoint.
+type entryListRawResponse struct {
+	Data        []json.RawMessage `json:"data"`
+	CurrentPage int               `json:"currentPage"`
+	PageSize    int               `json:"pageSize"`
+	TotalCount  int               `json:"totalCount"`
+	TotalPage   int               `json:"totalPage"`
+}
+
+// getEntriesOptions contains optional filters for listing entries.
+type getEntriesOptions struct {
+	Name string
+	Path string
+}
+
+// getEntries returns a list of entries from a vault with optional filters.
+// Entries with unsupported types are skipped.
+// This function handles pagination automatically and returns all entries across all pages.
+func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntriesOptions) ([]Entry, error) {
+	if vaultId == "" {
+		return nil, fmt.Errorf("vaultId is required")
+	}
+
+	baseEndpoint := entryPublicBaseEndpointReplacer(vaultId)
+	reqUrl, err := url.JoinPath(c.baseUri, baseEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build entry url: %w", err)
+	}
+
+	parsedUrl, err := url.Parse(reqUrl)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse entry url: %w", err)
+	}
+
+	var allEntries []Entry
+	currentPage := 1
+
+	for {
+		q := parsedUrl.Query()
+		if opts.Name != "" {
+			q.Set("name", opts.Name)
+		}
+		if opts.Path != "" {
+			q.Set("path", opts.Path)
+		}
+		q.Set("page", fmt.Sprintf("%d", currentPage))
+		parsedUrl.RawQuery = q.Encode()
+
+		resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching entries (page %d): %w", currentPage, err)
+		}
+
+		var rawResp entryListRawResponse
+		if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal entry list response (page %d): %w", currentPage, err)
+		}
+
+		for _, raw := range rawResp.Data {
+			var entry Entry
+			if err := json.Unmarshal(raw, &entry); err != nil {
+				if IsUnsupportedEntryType(err) {
+					continue
+				}
+				return nil, fmt.Errorf("failed to unmarshal entry (page %d): %w", currentPage, err)
+			}
+			entry.VaultId = vaultId
+			allEntries = append(allEntries, entry)
+		}
+
+		// Check if we've fetched all pages
+		if currentPage >= rawResp.TotalPage {
+			break
+		}
+		currentPage++
+	}
+
+	return allEntries, nil
 }
