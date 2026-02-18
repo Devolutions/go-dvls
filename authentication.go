@@ -84,18 +84,18 @@ func (c *Client) loginWithContext(ctx context.Context) error {
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
 	if err != nil {
-		return fmt.Errorf("failed to build login url. error: %w", err)
+		return fmt.Errorf("failed to build login url: %w", err)
 	}
 
 	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodPost, loginContentType, bytes.NewBufferString(loginBody))
 	if err != nil {
-		return fmt.Errorf("error while submitting login request. error: %w", err)
+		return fmt.Errorf("error while submitting login request: %w", err)
 	}
 
 	var loginResponse loginResponse
 	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	c.credential.token = loginResponse.TokenId
@@ -110,12 +110,12 @@ func (c *Client) isLogged() (bool, error) {
 func (c *Client) isLoggedWithContext(ctx context.Context) (bool, error) {
 	reqUrl, err := url.JoinPath(c.baseUri, isLoggedEndpoint)
 	if err != nil {
-		return false, fmt.Errorf("failed to build isLogged url. error: %w", err)
+		return false, fmt.Errorf("failed to build isLogged url: %w", err)
 	}
 
 	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodGet, defaultContentType, nil)
 	if err != nil && !strings.Contains(err.Error(), "json: cannot unmarshal bool into Go value") {
-		return false, fmt.Errorf("error while submitting isLogged request. error: %w", err)
+		return false, fmt.Errorf("error while submitting isLogged request: %w", err)
 	}
 
 	if string(resp.Response) == "false" {

@@ -94,6 +94,19 @@ var entryFactories = map[string]func() EntryData{
 	"Folder/Workstation":               func() EntryData { return &EntryFolderData{} },
 }
 
+// getSupportedSubTypes extracts all supported subtypes for a given entry type from entryFactories.
+// This ensures a single source of truth for supported entry types/subtypes.
+func getSupportedSubTypes(entryType string) map[string]struct{} {
+	result := make(map[string]struct{})
+	prefix := entryType + "/"
+	for key := range entryFactories {
+		if subType, found := strings.CutPrefix(key, prefix); found {
+			result[subType] = struct{}{}
+		}
+	}
+	return result
+}
+
 func (e *Entry) UnmarshalJSON(data []byte) error {
 	type alias Entry
 	raw := &struct {
@@ -152,7 +165,11 @@ func entryPublicBaseEndpointReplacer(vaultId string) string {
 
 // entryListRawResponse represents the raw paginated response from the entry list endpoint.
 type entryListRawResponse struct {
-	Data []json.RawMessage `json:"data"`
+	Data        []json.RawMessage `json:"data"`
+	CurrentPage int               `json:"currentPage"`
+	PageSize    int               `json:"pageSize"`
+	TotalCount  int               `json:"totalCount"`
+	TotalPage   int               `json:"totalPage"`
 }
 
 // getEntriesOptions contains optional filters for listing entries.
@@ -163,6 +180,7 @@ type getEntriesOptions struct {
 
 // getEntries returns a list of entries from a vault with optional filters.
 // Entries with unsupported types are skipped.
+// This function handles pagination automatically and returns all entries across all pages.
 func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntriesOptions) ([]Entry, error) {
 	if vaultId == "" {
 		return nil, fmt.Errorf("vaultId is required")
@@ -179,37 +197,48 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntries
 		return nil, fmt.Errorf("failed to parse entry url: %w", err)
 	}
 
-	q := parsedUrl.Query()
-	if opts.Name != "" {
-		q.Set("name", opts.Name)
-	}
-	if opts.Path != "" {
-		q.Set("path", opts.Path)
-	}
-	parsedUrl.RawQuery = q.Encode()
+	var allEntries []Entry
+	currentPage := 1
 
-	resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error while fetching entries: %w", err)
-	}
-
-	var rawResp entryListRawResponse
-	if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal entry list response: %w", err)
-	}
-
-	var entries []Entry
-	for _, raw := range rawResp.Data {
-		var entry Entry
-		if err := json.Unmarshal(raw, &entry); err != nil {
-			if IsUnsupportedEntryType(err) {
-				continue
-			}
-			return nil, fmt.Errorf("failed to unmarshal entry: %w", err)
+	for {
+		q := parsedUrl.Query()
+		if opts.Name != "" {
+			q.Set("name", opts.Name)
 		}
-		entry.VaultId = vaultId
-		entries = append(entries, entry)
+		if opts.Path != "" {
+			q.Set("path", opts.Path)
+		}
+		q.Set("page", fmt.Sprintf("%d", currentPage))
+		parsedUrl.RawQuery = q.Encode()
+
+		resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching entries (page %d): %w", currentPage, err)
+		}
+
+		var rawResp entryListRawResponse
+		if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal entry list response (page %d): %w", currentPage, err)
+		}
+
+		for _, raw := range rawResp.Data {
+			var entry Entry
+			if err := json.Unmarshal(raw, &entry); err != nil {
+				if IsUnsupportedEntryType(err) {
+					continue
+				}
+				return nil, fmt.Errorf("failed to unmarshal entry (page %d): %w", currentPage, err)
+			}
+			entry.VaultId = vaultId
+			allEntries = append(allEntries, entry)
+		}
+
+		// Check if we've fetched all pages
+		if currentPage >= rawResp.TotalPage {
+			break
+		}
+		currentPage++
 	}
 
-	return entries, nil
+	return allEntries, nil
 }

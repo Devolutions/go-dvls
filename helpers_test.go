@@ -10,6 +10,7 @@ import (
 
 // createTestVault creates a vault for testing and registers cleanup.
 // The vault name reflects the test being performed.
+// Polls until the vault is indexed and ready to use (max 5s timeout).
 func createTestVault(t *testing.T, name string) Vault {
 	t.Helper()
 	vault, err := testClient.Vaults.New(Vault{
@@ -22,12 +23,26 @@ func createTestVault(t *testing.T, name string) Vault {
 
 	require.NoError(t, err)
 
-	// Wait for vault to be fully indexed
-	time.Sleep(2 * time.Second)
-
+	// Register cleanup immediately after creation to ensure deletion even if polling times out
 	t.Cleanup(func() {
 		testClient.Vaults.Delete(vault.Id)
 	})
 
-	return vault
+	// Wait for vault to be indexed by polling
+	timeout := time.After(5 * time.Second)
+	ticker := time.NewTicker(200 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-timeout:
+			t.Fatalf("timeout waiting for vault %s to be indexed", vault.Id)
+		case <-ticker.C:
+			_, err := testClient.Vaults.Get(vault.Id)
+			if err == nil {
+				// Vault is indexed and ready
+				return vault
+			}
+		}
+	}
 }

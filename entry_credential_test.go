@@ -180,7 +180,7 @@ func Test_CredentialCRUD(t *testing.T) {
 	}
 }
 
-func Test_GetEntries(t *testing.T) {
+func Test_GetEntries_Filters(t *testing.T) {
 	vault := createTestVault(t, "getentries")
 	testPath := "go-dvls\\getentries"
 

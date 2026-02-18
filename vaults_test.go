@@ -19,13 +19,15 @@ func Test_Vaults(t *testing.T) {
 }
 
 func test_ListVaults(t *testing.T) {
+	vault := createTestVault(t, "list-vaults")
+
 	vaults, err := testClient.Vaults.List()
 	require.NoError(t, err)
 	assert.NotEmpty(t, vaults)
 
 	found := false
 	for _, v := range vaults {
-		if v.Id == testVaultId {
+		if v.Id == vault.Id {
 			found = true
 			break
 		}
@@ -34,21 +36,22 @@ func test_ListVaults(t *testing.T) {
 }
 
 func test_GetVault(t *testing.T) {
-	vault, err := testClient.Vaults.Get(testVaultId)
+	vault := createTestVault(t, "get-vault")
+
+	fetchedVault, err := testClient.Vaults.Get(vault.Id)
 	require.NoError(t, err)
-	assert.NotEmpty(t, vault.Id)
-	assert.NotEmpty(t, vault.Name)
+	assert.Equal(t, vault.Id, fetchedVault.Id)
+	assert.Equal(t, vault.Name, fetchedVault.Name)
 }
 
 func test_GetVaultByName(t *testing.T) {
-	// First get the vault by ID to know its name
-	vault, err := testClient.Vaults.Get(testVaultId)
-	require.NoError(t, err)
+	vault := createTestVault(t, "get-by-name")
 
-	// Then test GetByName
+	// Test GetByName with the created vault's name
 	foundVault, err := testClient.Vaults.GetByName(vault.Name)
 	require.NoError(t, err)
-	assert.Equal(t, testVaultId, foundVault.Id)
+	assert.Equal(t, vault.Id, foundVault.Id)
+	assert.Equal(t, vault.Name, foundVault.Name)
 }
 
 func test_GetVaultByName_NotFound(t *testing.T) {
@@ -110,6 +113,11 @@ func test_NewVault(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, created.Id)
 
+			// Register cleanup to ensure vault deletion even if test fails
+			t.Cleanup(func() {
+				testClient.Vaults.Delete(created.Id)
+			})
+
 			fetched, err := testClient.Vaults.Get(created.Id)
 			require.NoError(t, err)
 			assert.Equal(t, tt.vault.Name, fetched.Name)
@@ -117,9 +125,6 @@ func test_NewVault(t *testing.T) {
 			assert.Equal(t, tt.vault.ContentType, fetched.ContentType)
 			assert.Equal(t, tt.vault.SecurityLevel, fetched.SecurityLevel)
 			assert.Equal(t, tt.vault.Visibility, fetched.Visibility)
-
-			err = testClient.Vaults.Delete(created.Id)
-			require.NoError(t, err)
 		})
 	}
 }
@@ -135,6 +140,11 @@ func test_UpdateVault(t *testing.T) {
 
 	created, err := testClient.Vaults.New(originalVault)
 	require.NoError(t, err)
+
+	// Register cleanup to ensure vault deletion even if test fails
+	t.Cleanup(func() {
+		testClient.Vaults.Delete(created.Id)
+	})
 
 	tests := []struct {
 		name   string
@@ -202,9 +212,6 @@ func test_UpdateVault(t *testing.T) {
 			currentVault = fetched
 		})
 	}
-
-	err = testClient.Vaults.Delete(created.Id)
-	require.NoError(t, err)
 }
 
 // test_ContentType_DefaultEquivalence verifies that:

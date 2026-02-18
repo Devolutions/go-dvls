@@ -60,12 +60,12 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, option
 func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
 	islogged, err := c.isLoggedWithContext(ctx)
 	if err != nil {
-		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status. error: %w", err), Url: url}
+		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status: %w", err), Url: url}
 	}
 	if !islogged {
 		err := c.loginWithContext(ctx)
 		if err != nil {
-			return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token. error: %w", err), Url: url}
+			return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token: %w", err), Url: url}
 		}
 	}
 
@@ -89,7 +89,7 @@ func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMetho
 
 	req, err := http.NewRequestWithContext(ctx, reqMethod, url, reqBody)
 	if err != nil {
-		return Response{}, &RequestError{Err: fmt.Errorf("failed to make request. error: %w", err), Url: url}
+		return Response{}, &RequestError{Err: fmt.Errorf("failed to make request: %w", err), Url: url}
 	}
 
 	req.Header.Add("Content-Type", contentType)
@@ -97,7 +97,7 @@ func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMetho
 
 	resp, err := c.client.Do(req)
 	if err != nil {
-		return Response{}, &RequestError{Err: fmt.Errorf("error while submitting request. error: %w", err), Url: url}
+		return Response{}, &RequestError{Err: fmt.Errorf("error while submitting request: %w", err), Url: url}
 	}
 	defer resp.Body.Close()
 
@@ -110,13 +110,13 @@ func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMetho
 	var response Response
 	response.Response, err = io.ReadAll(resp.Body)
 	if err != nil {
-		return Response{}, &RequestError{Err: fmt.Errorf("failed to read response body. error: %w", err), Url: url}
+		return Response{}, &RequestError{Err: fmt.Errorf("failed to read response body: %w", err), Url: url}
 	}
 
 	if !opts.RawBody && len(response.Response) > 0 {
 		err = json.Unmarshal(response.Response, &response)
 		if err != nil {
-			return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body. error: %w", err), Url: url}
+			return response, &RequestError{Err: fmt.Errorf("failed to unmarshal response body: %w", err), Url: url}
 		}
 	}
 

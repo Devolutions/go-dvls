@@ -81,12 +81,12 @@ func test_NewCertificateEntryFile(t *testing.T) {
 
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
-		t.Fatal("failed read file. error: %w", err)
+		t.Fatalf("failed read file: %v", err)
 	}
 
 	stat, err := file.Stat()
 	if err != nil {
-		t.Fatal("failed read file. error: %w", err)
+		t.Fatalf("failed read file: %v", err)
 	}
 
 	entry.CertificateIdentifier = stat.Name()

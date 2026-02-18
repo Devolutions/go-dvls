@@ -78,6 +78,7 @@ func (c *Vaults) List() ([]Vault, error) {
 }
 
 // ListWithContext returns all vaults.
+// This function handles pagination automatically and returns all vaults across all pages.
 // The provided context can be used to cancel the request.
 func (c *Vaults) ListWithContext(ctx context.Context) ([]Vault, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint)
@@ -85,18 +86,39 @@ func (c *Vaults) ListWithContext(ctx context.Context) ([]Vault, error) {
 		return nil, fmt.Errorf("failed to build vault url: %w", err)
 	}
 
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
+	parsedUrl, err := url.Parse(reqUrl)
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching vaults: %w", err)
+		return nil, fmt.Errorf("failed to parse vault url: %w", err)
 	}
 
-	var listResp vaultListResponse
-	err = json.Unmarshal(resp.Response, &listResp)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
+	var allVaults []Vault
+	currentPage := 1
+
+	for {
+		q := parsedUrl.Query()
+		q.Set("page", fmt.Sprintf("%d", currentPage))
+		parsedUrl.RawQuery = q.Encode()
+
+		resp, err := c.client.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
+		if err != nil {
+			return nil, fmt.Errorf("error while fetching vaults (page %d): %w", currentPage, err)
+		}
+
+		var listResp vaultListResponse
+		if err := json.Unmarshal(resp.Response, &listResp); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal response body (page %d): %w", currentPage, err)
+		}
+
+		allVaults = append(allVaults, listResp.Data...)
+
+		// Check if we've fetched all pages
+		if currentPage >= listResp.TotalPage {
+			break
+		}
+		currentPage++
 	}
 
-	return listResp.Data, nil
+	return allVaults, nil
 }
 
 // Get returns a single Vault based on vaultId.

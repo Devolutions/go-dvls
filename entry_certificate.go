@@ -150,19 +150,19 @@ func (c *EntryCertificateService) GetWithContext(ctx context.Context, entryId st
 	var entry EntryCertificate
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("error while fetching entry: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return entry, nil
@@ -178,12 +178,12 @@ func (c *EntryCertificateService) GetFileContent(entryId string) ([]byte, error)
 func (c *EntryCertificateService) GetFileContentWithContext(ctx context.Context, entryId string) ([]byte, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryConnectionsEndpoint, entryId, "document")
 	if err != nil {
-		return nil, fmt.Errorf("failed to build entry url. error: %w", err)
+		return nil, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil, RequestOptions{RawBody: true})
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching entry content. error: %w", err)
+		return nil, fmt.Errorf("error while fetching entry content: %w", err)
 	}
 
 	return resp.Response, nil
@@ -200,19 +200,19 @@ func (c *EntryCertificateService) GetPasswordWithContext(ctx context.Context, en
 	var entryPassword EntryCertificate
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching sensitive data. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("error while fetching sensitive data: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entryPassword)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	entry.Password = entryPassword.Password
@@ -245,7 +245,7 @@ func (c *EntryCertificateService) NewFileWithContext(ctx context.Context, entry 
 func (c *EntryCertificateService) newWithContext(ctx context.Context, entry EntryCertificate, content []byte) (EntryCertificate, error) {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	entry.data.Mode = 3
@@ -257,19 +257,19 @@ func (c *EntryCertificateService) newWithContext(ctx context.Context, entry Entr
 
 	entryJson, err := json.Marshal(entry)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to marshal body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to marshal body: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while creating entry. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("error while creating entry: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	if content != nil {
@@ -282,12 +282,12 @@ func (c *EntryCertificateService) newWithContext(ctx context.Context, entry Entr
 
 		entryAttachment, err := c.client.newAttachmentRequest(ctx, attachment)
 		if err != nil {
-			return EntryCertificate{}, fmt.Errorf("error while creating entry attachment. error: %w", err)
+			return EntryCertificate{}, fmt.Errorf("error while creating entry attachment: %w", err)
 		}
 
 		err = c.client.uploadAttachment(ctx, content, entryAttachment)
 		if err != nil {
-			return EntryCertificate{}, fmt.Errorf("error while uploading attachment. error: %w", err)
+			return EntryCertificate{}, fmt.Errorf("error while uploading attachment: %w", err)
 		}
 	}
 
@@ -304,7 +304,7 @@ func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertifica
 func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
 	oldEntry, err := c.GetWithContext(ctx, entry.Id)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching entry. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("error while fetching entry: %w", err)
 	}
 
 	entry.data.Mode = oldEntry.data.Mode
@@ -312,24 +312,24 @@ func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry E
 
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	entryJson, err := json.Marshal(entry)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to marshal body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to marshal body: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while creating entry. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("error while creating entry: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &entry)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return entry, nil
@@ -345,12 +345,12 @@ func (c *EntryCertificateService) Delete(entryId string) error {
 func (c *EntryCertificateService) DeleteWithContext(ctx context.Context, entryId string) error {
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
 	if err != nil {
-		return fmt.Errorf("failed to delete entry url. error: %w", err)
+		return fmt.Errorf("failed to delete entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
 	if err != nil {
-		return fmt.Errorf("error while deleting entry. error: %w", err)
+		return fmt.Errorf("error while deleting entry: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return err
 	}

@@ -195,3 +195,98 @@ func Test_NestedFolders(t *testing.T) {
 	err = testClient.Entries.Folder.DeleteById(vault.Id, parentId)
 	require.NoError(t, err, "Failed to delete parent folder")
 }
+
+func Test_GetFolderEntries_Filters(t *testing.T) {
+	vault := createTestVault(t, "folder-getentries")
+	testPath := "go-dvls\\folder-getentries"
+
+	// Create 3 test folder entries - "Database" is exact match, others contain "Database" in name
+	entriesToCreate := []Entry{
+		{
+			VaultId:     vault.Id,
+			Name:        "Database",
+			Path:        testPath,
+			Type:        EntryFolderType,
+			SubType:     EntryFolderSubTypeDatabase,
+			Description: "Exact match folder",
+			Data:        &EntryFolderData{Domain: "db.local", Username: "dbuser"},
+		},
+		{
+			VaultId:     vault.Id,
+			Name:        "Database Backup",
+			Path:        testPath,
+			Type:        EntryFolderType,
+			SubType:     EntryFolderSubTypeDatabase,
+			Description: "Contains Database in name",
+			Data:        &EntryFolderData{Domain: "backup.local", Username: "backupuser"},
+		},
+		{
+			VaultId:     vault.Id,
+			Name:        "Database Production",
+			Path:        testPath,
+			Type:        EntryFolderType,
+			SubType:     EntryFolderSubTypeDatabase,
+			Description: "Contains Database in name",
+			Data:        &EntryFolderData{Domain: "prod.local", Username: "produser"},
+		},
+	}
+
+	// Create test entries
+	t.Log("Creating test folder entries for GetEntries")
+	var createdIds []string
+	for _, entry := range entriesToCreate {
+		id, err := testClient.Entries.Folder.New(entry)
+		require.NoError(t, err, "Failed to create folder entry %s", entry.Name)
+		createdIds = append(createdIds, id)
+		t.Logf("Created folder entry %q with ID: %s", entry.Name, id)
+	}
+
+	// Test 1: GetEntries with path filter should return at least our 3 folders
+	// Note: DVLS may auto-create parent folders, so we check for >= 3
+	t.Log("Test 1: GetEntries with path filter")
+	entries, err := testClient.Entries.Folder.GetEntries(vault.Id, "", testPath)
+	require.NoError(t, err, "GetEntries failed")
+	assert.GreaterOrEqual(t, len(entries), 3, "Expected at least 3 folder entries with path filter")
+
+	// Verify our 3 folders are present
+	foundNames := make(map[string]bool)
+	for _, e := range entries {
+		foundNames[e.Name] = true
+	}
+	assert.True(t, foundNames["Database"], "Expected to find 'Database' folder")
+	assert.True(t, foundNames["Database Backup"], "Expected to find 'Database Backup' folder")
+	assert.True(t, foundNames["Database Production"], "Expected to find 'Database Production' folder")
+	t.Logf("Found %d folder entries in path %q (including auto-created parent folders)", len(entries), testPath)
+
+	// Test 2: GetEntries with exact name match - should return only "Database"
+	t.Log("Test 2: GetEntries with exact name match")
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Database", "")
+	require.NoError(t, err, "GetEntries with exact name failed")
+	assert.Len(t, entries, 1, "Expected 1 folder entry with exact name match")
+	if len(entries) > 0 {
+		assert.Equal(t, "Database", entries[0].Name)
+		t.Logf("Found exact match: %q", entries[0].Name)
+	}
+
+	// Test 3: GetEntries with name and path filter
+	t.Log("Test 3: GetEntries with name and path filter")
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Database Backup", testPath)
+	require.NoError(t, err, "GetEntries with name and path filter failed")
+	assert.Len(t, entries, 1, "Expected 1 folder entry with name and path filter")
+	t.Logf("Found %d folder entry with combined filters", len(entries))
+
+	// Test 4: GetEntries with non-existent name should return empty
+	t.Log("Test 4: GetEntries with non-existent name")
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Non Existent Folder", testPath)
+	require.NoError(t, err, "GetEntries with non-existent name failed")
+	assert.Empty(t, entries, "Expected 0 folder entries for non-existent name")
+	t.Logf("Correctly returned %d folder entries for non-existent name", len(entries))
+
+	// Cleanup test entries
+	t.Log("Cleaning up test folder entries")
+	for _, id := range createdIds {
+		err := testClient.Entries.Folder.DeleteById(vault.Id, id)
+		require.NoError(t, err, "Failed to delete folder entry %s", id)
+	}
+	t.Log("Cleanup complete")
+}

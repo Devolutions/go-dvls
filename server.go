@@ -122,19 +122,19 @@ func (c *Client) GetPublicServerInfoWithContext(ctx context.Context) (Server, er
 	var server Server
 	reqUrl, err := url.JoinPath(c.baseUri, serverPublicInfoEndpoint)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
+		return Server{}, fmt.Errorf("failed to build server info url: %w", err)
 	}
 
 	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
+		return Server{}, fmt.Errorf("error while fetching server info: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return Server{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &server)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return Server{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return server, nil
@@ -151,19 +151,19 @@ func (c *Client) GetPrivateServerInfoWithContext(ctx context.Context) (Server, e
 	var server Server
 	reqUrl, err := url.JoinPath(c.baseUri, serverPrivateInfoEndpoint)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to build server info url. error: %w", err)
+		return Server{}, fmt.Errorf("failed to build server info url: %w", err)
 	}
 
 	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return Server{}, fmt.Errorf("error while fetching server info. error: %w", err)
+		return Server{}, fmt.Errorf("error while fetching server info: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return Server{}, err
 	}
 
 	err = json.Unmarshal(resp.Response, &server)
 	if err != nil {
-		return Server{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return Server{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return server, nil
@@ -182,12 +182,12 @@ func (c *Client) GetServerTimezonesWithContext(ctx context.Context) ([]Timezone,
 	var timezones []Timezone
 	reqUrl, err := url.JoinPath(c.baseUri, serverTimezonesEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build timezone info url. error: %w", err)
+		return nil, fmt.Errorf("failed to build timezone info url: %w", err)
 	}
 
 	resp, err := c.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return nil, fmt.Errorf("error while fetching timezones. error: %w", err)
+		return nil, fmt.Errorf("error while fetching timezones: %w", err)
 	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return nil, err
 	}
@@ -197,7 +197,7 @@ func (c *Client) GetServerTimezonesWithContext(ctx context.Context) ([]Timezone,
 	}{}
 	err = json.Unmarshal(resp.Response, &raw)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	timezones = raw.Data

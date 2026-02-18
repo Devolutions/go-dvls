@@ -20,6 +20,9 @@ const (
 	EntryCredentialSubTypePrivateKey            string = "PrivateKey"
 )
 
+// supportedCredentialSubTypes is generated from entryFactories to ensure a single source of truth.
+var supportedCredentialSubTypes = getSupportedSubTypes(EntryCredentialType)
+
 type EntryCredentialService service
 
 type EntryCredentialAccessCodeData struct {
@@ -239,26 +242,13 @@ func (c *EntryCredentialService) validateEntry(entry *Entry) error {
 		return fmt.Errorf("unsupported entry type (%s). Only %s is supported", entry.GetType(), EntryCredentialType)
 	}
 
-	supportedSubTypes := []string{
-		EntryCredentialSubTypeAccessCode,
-		EntryCredentialSubTypeApiKey,
-		EntryCredentialSubTypeAzureServicePrincipal,
-		EntryCredentialSubTypeConnectionString,
-		EntryCredentialSubTypeDefault,
-		EntryCredentialSubTypePrivateKey,
-	}
-
 	subType := entry.GetSubType()
-	isSupported := false
-	for _, t := range supportedSubTypes {
-		if subType == t {
-			isSupported = true
-			break
+	if _, isSupported := supportedCredentialSubTypes[subType]; !isSupported {
+		var supportedList []string
+		for st := range supportedCredentialSubTypes {
+			supportedList = append(supportedList, st)
 		}
-	}
-
-	if !isSupported {
-		return fmt.Errorf("unsupported entry subtype (%s). Supported subtypes: %v", subType, supportedSubTypes)
+		return fmt.Errorf("unsupported entry subtype (%s). Supported subtypes: %v", subType, supportedList)
 	}
 
 	return nil
@@ -292,17 +282,17 @@ func (c *EntryCredentialService) GetByIdWithContext(ctx context.Context, vaultId
 
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
-		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
 	if err != nil {
-		return Entry{}, fmt.Errorf("error while fetching entry. error: %w", err)
+		return Entry{}, fmt.Errorf("error while fetching entry: %w", err)
 	}
 
 	err = entry.UnmarshalJSON(resp.Response)
 	if err != nil {
-		return Entry{}, fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	entry.VaultId = vaultId
@@ -343,17 +333,17 @@ func (c *EntryCredentialService) NewWithContext(ctx context.Context, entry Entry
 	baseEntryEndpoint := entryPublicBaseEndpointReplacer(entry.VaultId)
 	reqUrl, err := url.JoinPath(c.client.baseUri, baseEntryEndpoint)
 	if err != nil {
-		return "", fmt.Errorf("failed to build entry url. error: %w", err)
+		return "", fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	body, err := json.Marshal(newEntryRequest)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal body. error: %w", err)
+		return "", fmt.Errorf("failed to marshal body: %w", err)
 	}
 
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(body))
 	if err != nil {
-		return "", fmt.Errorf("error while creating entry. error: %w", err)
+		return "", fmt.Errorf("error while creating entry: %w", err)
 	}
 
 	newEntryResponse := struct {
@@ -362,7 +352,7 @@ func (c *EntryCredentialService) NewWithContext(ctx context.Context, entry Entry
 
 	err = json.Unmarshal(resp.Response, &newEntryResponse)
 	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal response body. error: %w", err)
+		return "", fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 	return newEntryResponse.Id, nil
 }
@@ -400,17 +390,17 @@ func (c *EntryCredentialService) UpdateWithContext(ctx context.Context, entry En
 	entryUri := entryPublicEndpointReplacer(entry.VaultId, entry.Id)
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
-		return Entry{}, fmt.Errorf("failed to build entry url. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to build entry url: %w", err)
 	}
 
 	body, err := json.Marshal(updateEntryRequest)
 	if err != nil {
-		return Entry{}, fmt.Errorf("failed to marshal body. error: %w", err)
+		return Entry{}, fmt.Errorf("failed to marshal body: %w", err)
 	}
 
 	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(body))
 	if err != nil {
-		return Entry{}, fmt.Errorf("error while updating entry. error: %w", err)
+		return Entry{}, fmt.Errorf("error while updating entry: %w", err)
 	}
 
 	entry, err = c.GetByIdWithContext(ctx, entry.VaultId, entry.Id)
@@ -447,24 +437,26 @@ func (c *EntryCredentialService) DeleteByIdWithContext(ctx context.Context, vaul
 	entryUri := entryPublicEndpointReplacer(vaultId, entryId)
 	reqUrl, err := url.JoinPath(c.client.baseUri, entryUri)
 	if err != nil {
-		return fmt.Errorf("failed to build delete entry url. error: %w", err)
+		return fmt.Errorf("failed to build delete entry url: %w", err)
 	}
 
 	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
 	if err != nil {
-		return fmt.Errorf("error while deleting entry. error: %w", err)
+		return fmt.Errorf("error while deleting entry: %w", err)
 	}
 
 	return nil
 }
 
 // GetEntries returns a list of credential entries from a vault with optional name and path filters.
+// Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
 func (c *EntryCredentialService) GetEntries(vaultId, name, path string) ([]Entry, error) {
 	return c.GetEntriesWithContext(context.Background(), vaultId, name, path)
 }
 
 // GetEntriesWithContext returns a list of credential entries from a vault with optional name and path filters.
 // The provided context can be used to cancel the request.
+// Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
 func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaultId, name, path string) ([]Entry, error) {
 	entries, err := c.client.getEntries(ctx, vaultId, getEntriesOptions{
 		Name: name,
