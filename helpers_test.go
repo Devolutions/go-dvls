@@ -3,6 +3,7 @@ package dvls
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -18,9 +19,15 @@ func createTestVault(t *testing.T, name string) Vault {
 		SecurityLevel: VaultSecurityLevelStandard,
 		Visibility:    VaultVisibilityDefault,
 	})
+
 	require.NoError(t, err)
+
+	// Wait for vault to be fully indexed
+	time.Sleep(2 * time.Second)
+
 	t.Cleanup(func() {
 		testClient.Vaults.Delete(vault.Id)
 	})
+
 	return vault
 }

@@ -38,6 +38,7 @@ type Entries struct {
 	Host        *EntryHostService
 	Credential  *EntryCredentialService
 	Website     *EntryWebsiteService
+	Folder      *EntryFolderService
 }
 
 type Entry struct {
@@ -75,6 +76,22 @@ var entryFactories = map[string]func() EntryData{
 	"Credential/ConnectionString":      func() EntryData { return &EntryCredentialConnectionStringData{} },
 	"Credential/Default":               func() EntryData { return &EntryCredentialDefaultData{} },
 	"Credential/PrivateKey":            func() EntryData { return &EntryCredentialPrivateKeyData{} },
+	"Folder/Company":                   func() EntryData { return &EntryFolderData{} },
+	"Folder/Credentials":               func() EntryData { return &EntryFolderData{} },
+	"Folder/Customer":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Database":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Device":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Domain":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Folder":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Identity":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/MacroScriptTools":          func() EntryData { return &EntryFolderData{} },
+	"Folder/Printer":                   func() EntryData { return &EntryFolderData{} },
+	"Folder/Server":                    func() EntryData { return &EntryFolderData{} },
+	"Folder/Site":                      func() EntryData { return &EntryFolderData{} },
+	"Folder/SmartFolder":               func() EntryData { return &EntryFolderData{} },
+	"Folder/Software":                  func() EntryData { return &EntryFolderData{} },
+	"Folder/Team":                      func() EntryData { return &EntryFolderData{} },
+	"Folder/Workstation":               func() EntryData { return &EntryFolderData{} },
 }
 
 func (e *Entry) UnmarshalJSON(data []byte) error {

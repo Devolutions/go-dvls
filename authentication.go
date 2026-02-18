@@ -61,10 +61,11 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 	client.common.client = &client
 
 	client.Entries = &Entries{
-		Credential:  (*EntryCredentialService)(&client.common),
 		Certificate: (*EntryCertificateService)(&client.common),
-		Website:     (*EntryWebsiteService)(&client.common),
+		Credential:  (*EntryCredentialService)(&client.common),
+		Folder:      (*EntryFolderService)(&client.common),
 		Host:        (*EntryHostService)(&client.common),
+		Website:     (*EntryWebsiteService)(&client.common),
 	}
 	client.Vaults = (*Vaults)(&client.common)
 
