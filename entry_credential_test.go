@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -263,4 +264,49 @@ func Test_GetEntries_Filters(t *testing.T) {
 		require.NoError(t, err, "Failed to delete entry %s", id)
 	}
 	t.Log("Cleanup complete")
+}
+
+func Test_GetByName(t *testing.T) {
+	vault := createTestVault(t, "getbyname")
+	testPath := "go-dvls\\getbyname"
+
+	entry := Entry{
+		VaultId: vault.Id,
+		Name:    "MyCredential",
+		Path:    testPath,
+		Type:    EntryCredentialType,
+		SubType: EntryCredentialSubTypeDefault,
+		Data:    &EntryCredentialDefaultData{Username: "user", Password: "pass"},
+	}
+
+	id, err := testClient.Entries.Credential.New(entry)
+	require.NoError(t, err)
+
+	// Single match
+	t.Log("Test: single match by name")
+	got, err := testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", testPath, EntryCredentialSubTypeDefault)
+	require.NoError(t, err)
+	assert.Equal(t, id, got.Id)
+	assert.Equal(t, "MyCredential", got.Name)
+
+	// Not found
+	t.Log("Test: not found")
+	_, err = testClient.Entries.Credential.GetByName(vault.Id, "NonExistent", testPath, EntryCredentialSubTypeDefault)
+	assert.Error(t, err)
+	assert.False(t, errors.Is(err, ErrMultipleEntriesFound))
+
+	// Multiple entries found
+	t.Log("Test: multiple entries found")
+	_, err = testClient.Entries.Credential.New(Entry{
+		VaultId: vault.Id,
+		Name:    "MyCredential",
+		Path:    testPath,
+		Type:    EntryCredentialType,
+		SubType: EntryCredentialSubTypeDefault,
+		Data:    &EntryCredentialDefaultData{Username: "user2", Password: "pass2"},
+	})
+	require.NoError(t, err)
+
+	_, err = testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", testPath, EntryCredentialSubTypeDefault)
+	assert.True(t, errors.Is(err, ErrMultipleEntriesFound))
 }
