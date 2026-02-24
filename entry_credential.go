@@ -4,10 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 )
+
+var ErrEntryNotFound = errors.New("entry not found")
+var ErrMultipleEntriesFound = errors.New("multiple entries found")
 
 const (
 	EntryCredentialType string = "Credential"
@@ -475,4 +479,36 @@ func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaul
 	}
 
 	return credentials, nil
+}
+
+// GetByName retrieves a single credential entry by name, path, and subType.
+// Returns ErrMultipleEntriesFound if more than one match exists.
+func (c *EntryCredentialService) GetByName(vaultId, name, path, subType string) (Entry, error) {
+	return c.GetByNameWithContext(context.Background(), vaultId, name, path, subType)
+}
+
+// GetByNameWithContext retrieves a single credential entry by name, path, and subType.
+// Returns ErrMultipleEntriesFound if more than one match exists.
+// The provided context can be used to cancel the request.
+func (c *EntryCredentialService) GetByNameWithContext(ctx context.Context, vaultId, name, path, subType string) (Entry, error) {
+	entries, err := c.GetEntriesWithContext(ctx, vaultId, name, path)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	var matches []Entry
+	for _, e := range entries {
+		if e.SubType == subType {
+			matches = append(matches, e)
+		}
+	}
+
+	switch len(matches) {
+	case 0:
+		return Entry{}, ErrEntryNotFound
+	case 1:
+		return c.GetByIdWithContext(ctx, vaultId, matches[0].Id)
+	default:
+		return Entry{}, ErrMultipleEntriesFound
+	}
 }
