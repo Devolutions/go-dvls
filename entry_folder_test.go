@@ -241,10 +241,14 @@ func Test_GetFolderEntries_Filters(t *testing.T) {
 		t.Logf("Created folder entry %q with ID: %s", entry.Name, id)
 	}
 
+	databaseName := "Database"
+	databaseBackupName := "Database Backup"
+	nonExistentName := "Non Existent Folder"
+
 	// Test 1: GetEntries with path filter should return at least our 3 folders
 	// Note: DVLS may auto-create parent folders, so we check for >= 3
 	t.Log("Test 1: GetEntries with path filter")
-	entries, err := testClient.Entries.Folder.GetEntries(vault.Id, "", testPath)
+	entries, err := testClient.Entries.Folder.GetEntries(vault.Id, GetEntriesOptions{Path: &testPath})
 	require.NoError(t, err, "GetEntries failed")
 	assert.GreaterOrEqual(t, len(entries), 3, "Expected at least 3 folder entries with path filter")
 
@@ -260,7 +264,7 @@ func Test_GetFolderEntries_Filters(t *testing.T) {
 
 	// Test 2: GetEntries with exact name match - should return only "Database"
 	t.Log("Test 2: GetEntries with exact name match")
-	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Database", "")
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, GetEntriesOptions{Name: &databaseName})
 	require.NoError(t, err, "GetEntries with exact name failed")
 	assert.Len(t, entries, 1, "Expected 1 folder entry with exact name match")
 	if len(entries) > 0 {
@@ -270,14 +274,14 @@ func Test_GetFolderEntries_Filters(t *testing.T) {
 
 	// Test 3: GetEntries with name and path filter
 	t.Log("Test 3: GetEntries with name and path filter")
-	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Database Backup", testPath)
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, GetEntriesOptions{Name: &databaseBackupName, Path: &testPath})
 	require.NoError(t, err, "GetEntries with name and path filter failed")
 	assert.Len(t, entries, 1, "Expected 1 folder entry with name and path filter")
 	t.Logf("Found %d folder entry with combined filters", len(entries))
 
 	// Test 4: GetEntries with non-existent name should return empty
 	t.Log("Test 4: GetEntries with non-existent name")
-	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, "Non Existent Folder", testPath)
+	entries, err = testClient.Entries.Folder.GetEntries(vault.Id, GetEntriesOptions{Name: &nonExistentName, Path: &testPath})
 	require.NoError(t, err, "GetEntries with non-existent name failed")
 	assert.Empty(t, entries, "Expected 0 folder entries for non-existent name")
 	t.Logf("Correctly returned %d folder entries for non-existent name", len(entries))

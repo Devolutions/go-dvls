@@ -266,19 +266,19 @@ func (c *EntryFolderService) DeleteByIdWithContext(ctx context.Context, vaultId 
 	return nil
 }
 
-// GetEntries returns a list of folder entries from a vault with optional name and path filters.
+// GetEntries returns a list of folder entries from a vault with optional filters.
 // Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
-func (c *EntryFolderService) GetEntries(vaultId, name, path string) ([]Entry, error) {
-	return c.GetEntriesWithContext(context.Background(), vaultId, name, path)
+func (c *EntryFolderService) GetEntries(vaultId string, opts GetEntriesOptions) ([]Entry, error) {
+	return c.GetEntriesWithContext(context.Background(), vaultId, opts)
 }
 
-// GetEntriesWithContext returns a list of folder entries from a vault with optional name and path filters.
+// GetEntriesWithContext returns a list of folder entries from a vault with optional filters.
 // The provided context can be used to cancel the request.
 // Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
-func (c *EntryFolderService) GetEntriesWithContext(ctx context.Context, vaultId, name, path string) ([]Entry, error) {
-	entries, err := c.client.getEntries(ctx, vaultId, getEntriesOptions{
-		Name: name,
-		Path: path,
+func (c *EntryFolderService) GetEntriesWithContext(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
+	entries, err := c.client.getEntries(ctx, vaultId, GetEntriesOptions{
+		Name: opts.Name,
+		Path: opts.Path,
 	})
 	if err != nil {
 		return nil, err

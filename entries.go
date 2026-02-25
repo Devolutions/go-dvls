@@ -173,15 +173,16 @@ type entryListRawResponse struct {
 }
 
 // getEntriesOptions contains optional filters for listing entries.
-type getEntriesOptions struct {
-	Name string
-	Path string
+// A nil value means the filter is not applied.
+type GetEntriesOptions struct {
+	Name *string
+	Path *string
 }
 
 // getEntries returns a list of entries from a vault with optional filters.
 // Entries with unsupported types are skipped.
 // This function handles pagination automatically and returns all entries across all pages.
-func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntriesOptions) ([]Entry, error) {
+func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
 	if vaultId == "" {
 		return nil, fmt.Errorf("vaultId is required")
 	}
@@ -202,11 +203,11 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts getEntries
 
 	for {
 		q := parsedUrl.Query()
-		if opts.Name != "" {
-			q.Set("name", opts.Name)
+		if opts.Name != nil {
+			q.Set("name", *opts.Name)
 		}
-		if opts.Path != "" {
-			q.Set("path", opts.Path)
+		if opts.Path != nil {
+			q.Set("path", *opts.Path)
 		}
 		q.Set("page", fmt.Sprintf("%d", currentPage))
 		parsedUrl.RawQuery = q.Encode()

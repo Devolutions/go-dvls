@@ -226,16 +226,20 @@ func Test_GetEntries_Filters(t *testing.T) {
 		t.Logf("Created entry %q with ID: %s", entry.Name, id)
 	}
 
+	serverName := "Server"
+	serverBackupName := "Server Backup"
+	nonExistentName := "Non Existent Entry"
+
 	// Test 1: GetEntries with path filter should return all 3 entries
 	t.Log("Test 1: GetEntries with path filter")
-	entries, err := testClient.Entries.Credential.GetEntries(vault.Id, "", testPath)
+	entries, err := testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Path: &testPath})
 	require.NoError(t, err, "GetEntries failed")
 	assert.Len(t, entries, 3, "Expected 3 entries with path filter")
 	t.Logf("Found %d entries in path %q", len(entries), testPath)
 
 	// Test 2: GetEntries with exact name match - should return only "Server", not "Server Backup" or "Server Production"
 	t.Log("Test 2: GetEntries with exact name match")
-	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Server", "")
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Name: &serverName})
 	require.NoError(t, err, "GetEntries with exact name failed")
 	assert.Len(t, entries, 1, "Expected 1 entry with exact name match")
 	if len(entries) > 0 {
@@ -245,14 +249,14 @@ func Test_GetEntries_Filters(t *testing.T) {
 
 	// Test 3: GetEntries with name and path filter
 	t.Log("Test 3: GetEntries with name and path filter")
-	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Server Backup", testPath)
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Name: &serverBackupName, Path: &testPath})
 	require.NoError(t, err, "GetEntries with name and path filter failed")
 	assert.Len(t, entries, 1, "Expected 1 entry with name and path filter")
 	t.Logf("Found %d entry with combined filters", len(entries))
 
 	// Test 4: GetEntries with non-existent name should return empty
 	t.Log("Test 4: GetEntries with non-existent name")
-	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, "Non Existent Entry", testPath)
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Name: &nonExistentName, Path: &testPath})
 	require.NoError(t, err, "GetEntries with non-existent name failed")
 	assert.Empty(t, entries, "Expected 0 entries for non-existent name")
 	t.Logf("Correctly returned %d entries for non-existent name", len(entries))
@@ -284,14 +288,14 @@ func Test_GetByName(t *testing.T) {
 
 	// Single match
 	t.Log("Test: single match by name")
-	got, err := testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", testPath, EntryCredentialSubTypeDefault)
+	got, err := testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", EntryCredentialSubTypeDefault, GetByNameOptions{Path: &testPath})
 	require.NoError(t, err)
 	assert.Equal(t, id, got.Id)
 	assert.Equal(t, "MyCredential", got.Name)
 
 	// Not found
 	t.Log("Test: not found")
-	_, err = testClient.Entries.Credential.GetByName(vault.Id, "NonExistent", testPath, EntryCredentialSubTypeDefault)
+	_, err = testClient.Entries.Credential.GetByName(vault.Id, "NonExistent", EntryCredentialSubTypeDefault, GetByNameOptions{Path: &testPath})
 	assert.Error(t, err)
 	assert.False(t, errors.Is(err, ErrMultipleEntriesFound))
 
@@ -307,6 +311,6 @@ func Test_GetByName(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", testPath, EntryCredentialSubTypeDefault)
+	_, err = testClient.Entries.Credential.GetByName(vault.Id, "MyCredential", EntryCredentialSubTypeDefault, GetByNameOptions{Path: &testPath})
 	assert.True(t, errors.Is(err, ErrMultipleEntriesFound))
 }
