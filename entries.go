@@ -241,16 +241,17 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntries
 		currentPage++
 	}
 
-	// When path is explicitly set to "", the server ignores the filter and returns all entries.
-	// We apply client-side filtering to return only root-level entries (entries with no path).
-	if opts.Path != nil && *opts.Path == "" {
-		var rootEntries []Entry
+	// The server path filter is not exact, so we always apply client-side filtering when path
+	// is set. We match entries at the exact path or any sub-path (prefix + backslash separator).
+	// When path is "", the server ignores the filter, so we also handle root-level filtering here.
+	if opts.Path != nil {
+		var filtered []Entry
 		for _, entry := range allEntries {
-			if entry.Path == "" {
-				rootEntries = append(rootEntries, entry)
+			if entry.Path == *opts.Path || (*opts.Path != "" && strings.HasPrefix(entry.Path, *opts.Path+"\\")) {
+				filtered = append(filtered, entry)
 			}
 		}
-		return rootEntries, nil
+		return filtered, nil
 	}
 
 	return allEntries, nil
