@@ -206,7 +206,7 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntries
 		if opts.Name != nil {
 			q.Set("name", *opts.Name)
 		}
-		if opts.Path != nil {
+		if opts.Path != nil && *opts.Path != "" {
 			q.Set("path", *opts.Path)
 		}
 		q.Set("page", fmt.Sprintf("%d", currentPage))
@@ -239,6 +239,18 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntries
 			break
 		}
 		currentPage++
+	}
+
+	// When path is explicitly set to "", the server ignores the filter and returns all entries.
+	// We apply client-side filtering to return only root-level entries (entries with no path).
+	if opts.Path != nil && *opts.Path == "" {
+		var rootEntries []Entry
+		for _, entry := range allEntries {
+			if entry.Path == "" {
+				rootEntries = append(rootEntries, entry)
+			}
+		}
+		return rootEntries, nil
 	}
 
 	return allEntries, nil
