@@ -266,6 +266,28 @@ func (c *EntryFolderService) DeleteByIdWithContext(ctx context.Context, vaultId 
 	return nil
 }
 
+// GetByName retrieves a single folder entry by name and optional filters.
+// Returns ErrEntryNotFound if no match exists.
+func (c *EntryFolderService) GetByName(vaultId, name string, opts GetByNameOptions) (Entry, error) {
+	return c.GetByNameWithContext(context.Background(), vaultId, name, opts)
+}
+
+// GetByNameWithContext retrieves a single folder entry by name and optional filters.
+// Returns ErrEntryNotFound if no match exists.
+// The provided context can be used to cancel the request.
+func (c *EntryFolderService) GetByNameWithContext(ctx context.Context, vaultId, name string, opts GetByNameOptions) (Entry, error) {
+	entries, err := c.GetEntriesWithContext(ctx, vaultId, GetEntriesOptions{Name: &name, Path: opts.Path})
+	if err != nil {
+		return Entry{}, err
+	}
+
+	if len(entries) == 0 {
+		return Entry{}, ErrEntryNotFound
+	}
+
+	return c.GetByIdWithContext(ctx, vaultId, entries[0].Id)
+}
+
 // GetEntries returns a list of folder entries from a vault with optional filters.
 // Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
 func (c *EntryFolderService) GetEntries(vaultId string, opts GetEntriesOptions) ([]Entry, error) {
