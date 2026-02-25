@@ -270,6 +270,72 @@ func Test_GetEntries_Filters(t *testing.T) {
 	t.Log("Cleanup complete")
 }
 
+func Test_GetEntries_PathFilter(t *testing.T) {
+	vault := createTestVault(t, "pathfilter")
+
+	basePath := "go-dvls\\pathfilter"
+	subPath := "go-dvls\\pathfilter\\sub"
+	similarPath := "go-dvls\\pathfilterother"
+	rootPath := ""
+
+	newEntry := func(name, path string) Entry {
+		return Entry{
+			VaultId: vault.Id,
+			Name:    name,
+			Path:    path,
+			Type:    EntryCredentialType,
+			SubType: EntryCredentialSubTypeDefault,
+			Data:    &EntryCredentialDefaultData{Username: "user", Password: "pass"},
+		}
+	}
+
+	entriesToCreate := []Entry{
+		newEntry("InBasePath", basePath),
+		newEntry("InSubPath", subPath),
+		newEntry("InSimilarPath", similarPath),
+		newEntry("InRoot", rootPath),
+	}
+
+	t.Log("Creating test entries for path filter test")
+	for _, entry := range entriesToCreate {
+		_, err := testClient.Entries.Credential.New(entry)
+		require.NoError(t, err, "Failed to create entry %q in path %q", entry.Name, entry.Path)
+		t.Logf("Created entry %q in path %q", entry.Name, entry.Path)
+	}
+
+	// Filter by basePath - should return InBasePath and InSubPath, but not InSimilarPath or InRoot
+	t.Logf("filtering by path %q", basePath)
+	entries, err := testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Path: &basePath})
+	require.NoError(t, err)
+
+	var names []string
+	for _, e := range entries {
+		names = append(names, e.Name)
+	}
+	t.Logf("Got entries: %v", names)
+
+	assert.Len(t, entries, 2, "Expected 2 entries (basePath + subPath), got %v", names)
+	assert.Contains(t, names, "InBasePath", "Expected InBasePath in results")
+	assert.Contains(t, names, "InSubPath", "Expected InSubPath in results")
+	assert.NotContains(t, names, "InSimilarPath", "InSimilarPath should not be in results")
+	assert.NotContains(t, names, "InRoot", "InRoot should not be in results")
+
+	// Filter by root path ("") - should return only InRoot
+	t.Log("filtering by root path")
+	entries, err = testClient.Entries.Credential.GetEntries(vault.Id, GetEntriesOptions{Path: &rootPath})
+	require.NoError(t, err)
+
+	names = nil
+	for _, e := range entries {
+		names = append(names, e.Name)
+	}
+	t.Logf("Got root entries: %v", names)
+
+	assert.Len(t, entries, 1, "Expected 1 root entry, got %v", names)
+	assert.Contains(t, names, "InRoot", "Expected InRoot in root results")
+	assert.NotContains(t, names, "InBasePath", "InBasePath should not be in root results")
+}
+
 func Test_GetByName(t *testing.T) {
 	vault := createTestVault(t, "getbyname")
 	testPath := "go-dvls\\getbyname"
