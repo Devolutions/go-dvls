@@ -452,19 +452,19 @@ func (c *EntryCredentialService) DeleteByIdWithContext(ctx context.Context, vaul
 	return nil
 }
 
-// GetEntries returns a list of credential entries from a vault with optional name and path filters.
+// GetEntries returns a list of credential entries from a vault with optional filters.
 // Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
-func (c *EntryCredentialService) GetEntries(vaultId, name, path string) ([]Entry, error) {
-	return c.GetEntriesWithContext(context.Background(), vaultId, name, path)
+func (c *EntryCredentialService) GetEntries(vaultId string, opts GetEntriesOptions) ([]Entry, error) {
+	return c.GetEntriesWithContext(context.Background(), vaultId, opts)
 }
 
-// GetEntriesWithContext returns a list of credential entries from a vault with optional name and path filters.
+// GetEntriesWithContext returns a list of credential entries from a vault with optional filters.
 // The provided context can be used to cancel the request.
 // Note: The API does not support filtering by entry type, so all entries are fetched and filtered client-side.
-func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaultId, name, path string) ([]Entry, error) {
-	entries, err := c.client.getEntries(ctx, vaultId, getEntriesOptions{
-		Name: name,
-		Path: path,
+func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
+	entries, err := c.client.getEntries(ctx, vaultId, GetEntriesOptions{
+		Name: opts.Name,
+		Path: opts.Path,
 	})
 	if err != nil {
 		return nil, err
@@ -481,17 +481,25 @@ func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaul
 	return credentials, nil
 }
 
-// GetByName retrieves a single credential entry by name, path, and subType.
-// Returns ErrMultipleEntriesFound if more than one match exists.
-func (c *EntryCredentialService) GetByName(vaultId, name, path, subType string) (Entry, error) {
-	return c.GetByNameWithContext(context.Background(), vaultId, name, path, subType)
+// GetByNameOptions contains optional filters for GetByName.
+// A nil field means the filter is not applied.
+type GetByNameOptions struct {
+	Path *string
 }
 
-// GetByNameWithContext retrieves a single credential entry by name, path, and subType.
+// GetByName retrieves a single credential entry by name, subType, and optional filters.
+// Returns ErrEntryNotFound if no match exists.
+// Returns ErrMultipleEntriesFound if more than one match exists.
+func (c *EntryCredentialService) GetByName(vaultId, name, subType string, opts GetByNameOptions) (Entry, error) {
+	return c.GetByNameWithContext(context.Background(), vaultId, name, subType, opts)
+}
+
+// GetByNameWithContext retrieves a single credential entry by name, subType, and optional filters.
+// Returns ErrEntryNotFound if no match exists.
 // Returns ErrMultipleEntriesFound if more than one match exists.
 // The provided context can be used to cancel the request.
-func (c *EntryCredentialService) GetByNameWithContext(ctx context.Context, vaultId, name, path, subType string) (Entry, error) {
-	entries, err := c.GetEntriesWithContext(ctx, vaultId, name, path)
+func (c *EntryCredentialService) GetByNameWithContext(ctx context.Context, vaultId, name, subType string, opts GetByNameOptions) (Entry, error) {
+	entries, err := c.GetEntriesWithContext(ctx, vaultId, GetEntriesOptions{Name: &name, Path: opts.Path})
 	if err != nil {
 		return Entry{}, err
 	}
