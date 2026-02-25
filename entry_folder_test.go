@@ -196,6 +196,62 @@ func Test_NestedFolders(t *testing.T) {
 	require.NoError(t, err, "Failed to delete parent folder")
 }
 
+func Test_GetFolderByName(t *testing.T) {
+	vault := createTestVault(t, "folder-getbyname")
+	testPath := "go-dvls\\folder-getbyname"
+
+	entry := Entry{
+		VaultId: vault.Id,
+		Name:    "MyFolder",
+		Path:    testPath,
+		Type:    EntryFolderType,
+		SubType: EntryFolderSubTypeFolder,
+		Data:    &EntryFolderData{Domain: "test.local", Username: "testuser"},
+	}
+
+	id, err := testClient.Entries.Folder.New(entry)
+	require.NoError(t, err, "Failed to create folder entry")
+	t.Cleanup(func() {
+		_ = testClient.Entries.Folder.DeleteById(vault.Id, id)
+	})
+
+	// GetByName with name only
+	got, err := testClient.Entries.Folder.GetByName(vault.Id, "MyFolder", GetByNameOptions{Path: &testPath})
+	require.NoError(t, err)
+	assert.Equal(t, id, got.Id)
+	assert.Equal(t, "MyFolder", got.Name)
+	assert.Equal(t, testPath+`\MyFolder`, got.Path)
+
+	// GetByName with non-existent name returns ErrEntryNotFound
+	_, err = testClient.Entries.Folder.GetByName(vault.Id, "NonExistentFolder", GetByNameOptions{Path: &testPath})
+	assert.ErrorIs(t, err, ErrEntryNotFound)
+
+	// GetByName without path filter also finds the entry
+	got, err = testClient.Entries.Folder.GetByName(vault.Id, "MyFolder", GetByNameOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, id, got.Id)
+
+	// Root-level folder: path returned by API is the folder name itself
+	rootEntry := Entry{
+		VaultId: vault.Id,
+		Name:    "MyRootFolder",
+		Path:    "",
+		Type:    EntryFolderType,
+		SubType: EntryFolderSubTypeFolder,
+		Data:    &EntryFolderData{},
+	}
+	rootId, err := testClient.Entries.Folder.New(rootEntry)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = testClient.Entries.Folder.DeleteById(vault.Id, rootId)
+	})
+
+	root, err := testClient.Entries.Folder.GetByName(vault.Id, "MyRootFolder", GetByNameOptions{})
+	require.NoError(t, err)
+	assert.Equal(t, rootId, root.Id)
+	assert.Equal(t, "MyRootFolder", root.Path)
+}
+
 func Test_GetFolderEntries_Filters(t *testing.T) {
 	vault := createTestVault(t, "folder-getentries")
 	testPath := "go-dvls\\folder-getentries"

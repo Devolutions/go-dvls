@@ -172,6 +172,12 @@ type entryListRawResponse struct {
 	TotalPage   int               `json:"totalPage"`
 }
 
+// GetByNameOptions contains optional filters for GetByName.
+// A nil field means the filter is not applied.
+type GetByNameOptions struct {
+	Path *string
+}
+
 // getEntriesOptions contains optional filters for listing entries.
 // A nil value means the filter is not applied.
 type GetEntriesOptions struct {

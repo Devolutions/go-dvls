@@ -481,12 +481,6 @@ func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaul
 	return credentials, nil
 }
 
-// GetByNameOptions contains optional filters for GetByName.
-// A nil field means the filter is not applied.
-type GetByNameOptions struct {
-	Path *string
-}
-
 // GetByName retrieves a single credential entry by name, subType, and optional filters.
 // Returns ErrEntryNotFound if no match exists.
 // Returns ErrMultipleEntriesFound if more than one match exists.
