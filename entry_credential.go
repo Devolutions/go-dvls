@@ -379,9 +379,9 @@ func (c *EntryCredentialService) UpdateWithContext(ctx context.Context, entry En
 
 	updateEntryRequest := struct {
 		Name        string    `json:"name"`
-		Description string    `json:"description,omitempty"`
-		Path        string    `json:"path,omitempty"`
-		Tags        []string  `json:"tags,omitempty"`
+		Description string    `json:"description"`
+		Path        string    `json:"path"`
+		Tags        []string  `json:"tags"`
 		Data        EntryData `json:"data"`
 	}{
 		Name:        entry.Name,
