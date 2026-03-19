@@ -3,6 +3,8 @@ name: testing
 on:
   pull_request:
     branches: [master]
+  push:
+    branches: [master]
   workflow_dispatch:
 
 concurrency:
@@ -10,9 +12,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  unit-tests:
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out ${{ github.repository }}
+        uses: actions/checkout@v6
+
+      - name: Check out Devolutions/actions
+        uses: actions/checkout@v6
+        with:
+          repository: Devolutions/actions
+          ref: v1
+          token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
+          path: ./.github/workflows
+
+      - name: Get current version
+        id: get-version
+        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+
+      - name: Does tag exists?
+        uses: ./.github/workflows/tag-check
+        with:
+          github_token: ${{ github.token }}
+          tag: v${{ steps.get-version.outputs.version }}
+
+      - name: Setup Go environment
+        uses: actions/setup-go@v6
+        with:
+          go-version: ${{ vars.GO_VERSION }}
+
+      - name: Run unit tests
+        run: go test -v ./...
+
+  integration-tests:
     environment: test-application
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Check out ${{ github.repository }}
@@ -59,8 +96,7 @@ jobs:
           sudo cp ${{ runner.temp }}/certificate.pem /usr/local/share/ca-certificates/certificate.crt
           sudo update-ca-certificates
 
-      - name: Test application
-        uses: ./.github/workflows/go-test
+      - name: Run integration tests
         env:
           TEST_USER: ${{ secrets.TEST_USER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
@@ -70,5 +106,4 @@ jobs:
           TEST_CERTIFICATE_FILE_PATH: '${{ runner.temp }}/test.p12'
           TEST_HOST_ENTRY_ID: ${{ secrets.TEST_HOST_ENTRY_ID }}
           TEST_WEBSITE_ENTRY_ID: ${{ secrets.TEST_WEBSITE_ENTRY_ID }}
-        with:
-          github_token: ${{ secrets.DEVOLUTIONSBOT_TOKEN }}
+        run: go test -tags integration -v ./...
