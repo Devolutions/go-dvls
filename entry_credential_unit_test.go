@@ -206,3 +206,49 @@ func TestCredentialValidation_UnsupportedSubType(t *testing.T) {
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "unsupported")
 }
+
+// TestCredentialGetEntries_MultiPage verifies the loop advances through pages using
+// the pageNumber parameter (1-indexed) and accumulates the distinct records of each.
+func TestCredentialGetEntries_MultiPage(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc(fmt.Sprintf("/api/v1/vault/%s/entry", testVaultID), func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("expected GET, got %s", r.Method)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Query().Get("pageNumber") {
+		case "1":
+			w.Write([]byte(`{
+				"result": 1,
+				"data": [
+					{"id":"1","name":"Cred1","type":"Credential","subType":"Default","path":"","data":{"username":"u1"}},
+					{"id":"2","name":"Cred2","type":"Credential","subType":"Default","path":"","data":{"username":"u2"}}
+				],
+				"currentPage": 1,
+				"totalPage": 2,
+				"totalCount": 3,
+				"pageSize": 2
+			}`))
+		case "2":
+			w.Write([]byte(`{
+				"result": 1,
+				"data": [
+					{"id":"3","name":"Cred3","type":"Credential","subType":"Default","path":"","data":{"username":"u3"}}
+				],
+				"currentPage": 2,
+				"totalPage": 2,
+				"totalCount": 3,
+				"pageSize": 2
+			}`))
+		}
+	})
+
+	client := newTestClient(t, mux)
+
+	entries, err := client.Entries.Credential.GetEntries(testVaultID, GetEntriesOptions{})
+	require.NoError(t, err)
+	require.Len(t, entries, 3)
+	assert.Equal(t, "Cred1", entries[0].Name)
+	assert.Equal(t, "Cred2", entries[1].Name)
+	assert.Equal(t, "Cred3", entries[2].Name)
+}

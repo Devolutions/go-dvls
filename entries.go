@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 )
 
@@ -165,11 +166,8 @@ func entryPublicBaseEndpointReplacer(vaultId string) string {
 
 // entryListRawResponse represents the raw paginated response from the entry list endpoint.
 type entryListRawResponse struct {
-	Data        []json.RawMessage `json:"data"`
-	CurrentPage int               `json:"currentPage"`
-	PageSize    int               `json:"pageSize"`
-	TotalCount  int               `json:"totalCount"`
-	TotalPage   int               `json:"totalPage"`
+	Data []json.RawMessage `json:"data"`
+	pagedResponse
 }
 
 // GetByNameOptions contains optional filters for GetByName.
@@ -204,28 +202,28 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntries
 		return nil, fmt.Errorf("failed to parse entry url: %w", err)
 	}
 
-	var allEntries []Entry
-	currentPage := 1
+	baseQuery := parsedUrl.Query()
+	if opts.Name != nil {
+		baseQuery.Set("name", *opts.Name)
+	}
+	if opts.Path != nil && *opts.Path != "" {
+		baseQuery.Set("path", *opts.Path)
+	}
+	baseQuery.Set("pageSize", strconv.Itoa(listPageSize))
 
-	for {
-		q := parsedUrl.Query()
-		if opts.Name != nil {
-			q.Set("name", *opts.Name)
-		}
-		if opts.Path != nil && *opts.Path != "" {
-			q.Set("path", *opts.Path)
-		}
-		q.Set("page", fmt.Sprintf("%d", currentPage))
-		parsedUrl.RawQuery = q.Encode()
+	var allEntries []Entry
+	err = fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
+		baseQuery.Set("pageNumber", strconv.Itoa(pageNumber))
+		parsedUrl.RawQuery = baseQuery.Encode()
 
 		resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
 		if err != nil {
-			return nil, fmt.Errorf("error while fetching entries (page %d): %w", currentPage, err)
+			return pagedResponse{}, 0, fmt.Errorf("error while fetching entries (page %d): %w", pageNumber, err)
 		}
 
 		var rawResp entryListRawResponse
 		if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal entry list response (page %d): %w", currentPage, err)
+			return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal entry list response (page %d): %w", pageNumber, err)
 		}
 
 		for _, raw := range rawResp.Data {
@@ -234,17 +232,16 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntries
 				if IsUnsupportedEntryType(err) {
 					continue
 				}
-				return nil, fmt.Errorf("failed to unmarshal entry (page %d): %w", currentPage, err)
+				return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal entry (page %d): %w", pageNumber, err)
 			}
 			entry.VaultId = vaultId
 			allEntries = append(allEntries, entry)
 		}
 
-		// Check if we've fetched all pages
-		if currentPage >= rawResp.TotalPage {
-			break
-		}
-		currentPage++
+		return rawResp.pagedResponse, len(rawResp.Data), nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	// The server path filter is not exact, so we always apply client-side filtering when path

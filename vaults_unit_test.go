@@ -13,25 +13,19 @@ import (
 func TestVaultsList_Pagination(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
-		page := r.URL.Query().Get("page")
+		pageNumber := r.URL.Query().Get("pageNumber")
 		w.Header().Set("Content-Type", "application/json")
 
-		switch page {
+		switch pageNumber {
 		case "1":
 			json.NewEncoder(w).Encode(vaultListResponse{
-				Data:        []Vault{{Id: "vault-1", Name: "Page1Vault"}},
-				CurrentPage: 1,
-				PageSize:    1,
-				TotalCount:  2,
-				TotalPage:   2,
+				Data:          []Vault{{Id: "vault-1", Name: "Page1Vault"}},
+				pagedResponse: pagedResponse{CurrentPage: 1, PageSize: 1, TotalCount: 2, TotalPage: 2},
 			})
 		case "2":
 			json.NewEncoder(w).Encode(vaultListResponse{
-				Data:        []Vault{{Id: "vault-2", Name: "Page2Vault"}},
-				CurrentPage: 2,
-				PageSize:    1,
-				TotalCount:  2,
-				TotalPage:   2,
+				Data:          []Vault{{Id: "vault-2", Name: "Page2Vault"}},
+				pagedResponse: pagedResponse{CurrentPage: 2, PageSize: 1, TotalCount: 2, TotalPage: 2},
 			})
 		}
 	})
@@ -55,8 +49,7 @@ func TestVaultsGetByName(t *testing.T) {
 				{Id: "vault-2", Name: "Beta"},
 				{Id: "vault-3", Name: "Gamma"},
 			},
-			CurrentPage: 1,
-			TotalPage:   1,
+			pagedResponse: pagedResponse{CurrentPage: 1, TotalPage: 1},
 		})
 	})
 
@@ -73,9 +66,8 @@ func TestVaultsGetByName_NotFound(t *testing.T) {
 	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(vaultListResponse{
-			Data:        []Vault{{Id: "vault-1", Name: "Alpha"}},
-			CurrentPage: 1,
-			TotalPage:   1,
+			Data:          []Vault{{Id: "vault-1", Name: "Alpha"}},
+			pagedResponse: pagedResponse{CurrentPage: 1, TotalPage: 1},
 		})
 	})
 
