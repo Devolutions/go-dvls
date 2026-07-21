@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 )
 
 type VaultVisibility string
@@ -49,11 +50,8 @@ type Vault struct {
 
 // vaultListResponse represents the paginated response from the vault list endpoint.
 type vaultListResponse struct {
-	Data        []Vault `json:"data"`
-	CurrentPage int     `json:"currentPage"`
-	PageSize    int     `json:"pageSize"`
-	TotalCount  int     `json:"totalCount"`
-	TotalPage   int     `json:"totalPage"`
+	Data []Vault `json:"data"`
+	pagedResponse
 }
 
 // vaultRequest represents the request body for create/update operations.
@@ -91,31 +89,30 @@ func (c *Vaults) ListWithContext(ctx context.Context) ([]Vault, error) {
 		return nil, fmt.Errorf("failed to parse vault url: %w", err)
 	}
 
-	var allVaults []Vault
-	currentPage := 1
+	baseQuery := parsedUrl.Query()
+	baseQuery.Set("pageSize", strconv.Itoa(listPageSize))
 
-	for {
-		q := parsedUrl.Query()
-		q.Set("page", fmt.Sprintf("%d", currentPage))
-		parsedUrl.RawQuery = q.Encode()
+	var allVaults []Vault
+	err = fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
+		baseQuery.Set("pageNumber", strconv.Itoa(pageNumber))
+		parsedUrl.RawQuery = baseQuery.Encode()
 
 		resp, err := c.client.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
 		if err != nil {
-			return nil, fmt.Errorf("error while fetching vaults (page %d): %w", currentPage, err)
+			return pagedResponse{}, 0, fmt.Errorf("error while fetching vaults (page %d): %w", pageNumber, err)
 		}
 
 		var listResp vaultListResponse
 		if err := json.Unmarshal(resp.Response, &listResp); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal response body (page %d): %w", currentPage, err)
+			return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal response body (page %d): %w", pageNumber, err)
 		}
 
 		allVaults = append(allVaults, listResp.Data...)
 
-		// Check if we've fetched all pages
-		if currentPage >= listResp.TotalPage {
-			break
-		}
-		currentPage++
+		return listResp.pagedResponse, len(listResp.Data), nil
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return allVaults, nil
