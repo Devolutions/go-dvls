@@ -29,7 +29,12 @@ type service struct {
 type credentials struct {
 	appKey    string
 	appSecret string
+	apiKey    string
 	token     string
+}
+
+func (c credentials) useApiKey() bool {
+	return c.apiKey != ""
 }
 
 type loginResponse struct {
@@ -58,18 +63,39 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 		return Client{}, fmt.Errorf("login failed \"%w\"", err)
 	}
 
-	client.common.client = &client
-
-	client.Entries = &Entries{
-		Certificate: (*EntryCertificateService)(&client.common),
-		Credential:  (*EntryCredentialService)(&client.common),
-		Folder:      (*EntryFolderService)(&client.common),
-		Host:        (*EntryHostService)(&client.common),
-		Website:     (*EntryWebsiteService)(&client.common),
-	}
-	client.Vaults = (*Vaults)(&client.common)
+	client.initServices()
 
 	return client, nil
+}
+
+// NewClientWithApiKey returns a new Client configured with the specified API key and base URI.
+// The API key is sent directly on each request using the Authorization Bearer scheme, so no
+// login exchange or token refresh is performed. baseUri should be the full URI to your DVLS
+// instance (ex.: https://dvls.your-dvls-instance.com)
+func NewClientWithApiKey(apiKey string, baseUri string) (Client, error) {
+	credential := credentials{apiKey: apiKey}
+	client := Client{
+		client:     &http.Client{},
+		baseUri:    baseUri,
+		credential: credential,
+	}
+
+	client.initServices()
+
+	return client, nil
+}
+
+func (c *Client) initServices() {
+	c.common.client = c
+
+	c.Entries = &Entries{
+		Certificate: (*EntryCertificateService)(&c.common),
+		Credential:  (*EntryCredentialService)(&c.common),
+		Folder:      (*EntryFolderService)(&c.common),
+		Host:        (*EntryHostService)(&c.common),
+		Website:     (*EntryWebsiteService)(&c.common),
+	}
+	c.Vaults = (*Vaults)(&c.common)
 }
 
 func (c *Client) login() error {

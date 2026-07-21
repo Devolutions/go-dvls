@@ -58,14 +58,16 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, option
 // RequestWithContext returns a Response that contains the HTTP response body in bytes, the result code and result message.
 // The provided context can be used to cancel the request.
 func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
-	islogged, err := c.isLoggedWithContext(ctx)
-	if err != nil {
-		return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status: %w", err), Url: url}
-	}
-	if !islogged {
-		err := c.loginWithContext(ctx)
+	if !c.credential.useApiKey() {
+		islogged, err := c.isLoggedWithContext(ctx)
 		if err != nil {
-			return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token: %w", err), Url: url}
+			return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status: %w", err), Url: url}
+		}
+		if !islogged {
+			err := c.loginWithContext(ctx)
+			if err != nil {
+				return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token: %w", err), Url: url}
+			}
 		}
 	}
 
@@ -93,7 +95,11 @@ func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMetho
 	}
 
 	req.Header.Add("Content-Type", contentType)
-	req.Header.Add("tokenId", c.credential.token)
+	if c.credential.useApiKey() {
+		req.Header.Add("Authorization", "Bearer "+c.credential.apiKey)
+	} else {
+		req.Header.Add("tokenId", c.credential.token)
+	}
 
 	resp, err := c.client.Do(req)
 	if err != nil {
