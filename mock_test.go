@@ -23,15 +23,7 @@ func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 		client:     server.Client(),
 		credential: credentials{token: "test-token"},
 	}
-	client.common.client = client
-	client.Entries = &Entries{
-		Certificate: (*EntryCertificateService)(&client.common),
-		Credential:  (*EntryCredentialService)(&client.common),
-		Folder:      (*EntryFolderService)(&client.common),
-		Host:        (*EntryHostService)(&client.common),
-		Website:     (*EntryWebsiteService)(&client.common),
-	}
-	client.Vaults = (*Vaults)(&client.common)
+	client.initServices()
 
 	return client
 }

@@ -16,7 +16,9 @@ Heavily based on the information found on the [Devolutions.Server](https://githu
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
 - Add the import `import "github.com/Devolutions/go-dvls"`
-- Setup the client (we recommend using an [Application ID](https://docs.devolutions.net/server/web-interface/administration/security-management/applications/))
+- Setup the client using either an [Application ID](https://docs.devolutions.net/server/web-interface/administration/security-management/applications/) (App Key + App Secret) or an [API key](https://docs.devolutions.net/server/knowledge-base/how-to-articles/generate-manage-and-use-devolutions-server-api-keys)
+
+Using an Application ID:
 ``` go
 package main
 
@@ -27,12 +29,30 @@ import (
 )
 
 func main() {
-    // We strongly recommend using an Application ID with your client
-	c, err := dvls.NewClient("username", "password", "https://your-dvls-instance.com")
+	c, err := dvls.NewClient("appKey", "appSecret", "https://your-dvls-instance.com")
 	if err != nil {
 		log.Fatal(err)
 	}
-	log.Print(c.ClientUser.Username)
+	_ = c
+}
+```
+
+Using an API key:
+``` go
+package main
+
+import (
+	"log"
+
+	"github.com/Devolutions/go-dvls"
+)
+
+func main() {
+	c, err := dvls.NewClientWithApiKey("apiKey", "https://your-dvls-instance.com")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_ = c
 }
 ```
 
