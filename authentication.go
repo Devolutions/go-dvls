@@ -18,8 +18,10 @@ type Client struct {
 
 	common service
 
-	Entries *Entries
-	Vaults  *Vaults
+	Entries                       *Entries
+	Vaults                        *Vaults
+	AdministrativeRoles           *AdministrativeRoles
+	AdministrativeRoleAssignments *AdministrativeRoleAssignments
 }
 
 type service struct {
@@ -96,6 +98,8 @@ func (c *Client) initServices() {
 		Website:     (*EntryWebsiteService)(&c.common),
 	}
 	c.Vaults = (*Vaults)(&c.common)
+	c.AdministrativeRoles = (*AdministrativeRoles)(&c.common)
+	c.AdministrativeRoleAssignments = (*AdministrativeRoleAssignments)(&c.common)
 }
 
 func (c *Client) login() error {

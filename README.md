@@ -11,7 +11,7 @@
 | 0.16.0+         | 2026.x         |
 | 0.15.0          | 2024.x, 2025.x |
 
-Heavily based on the information found on the [Devolutions.Server](https://github.com/Devolutions/devolutions-server/tree/main/Powershell%20Module/Devolutions.Server) powershell module.
+Administrative roles and role assignments (`client.AdministrativeRoles`, `client.AdministrativeRoleAssignments`) require DVLS 2026.3 or later.
 
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
