@@ -94,6 +94,7 @@ func (c *Client) initServices() {
 		Folder:      (*EntryFolderService)(&c.common),
 		Host:        (*EntryHostService)(&c.common),
 		Website:     (*EntryWebsiteService)(&c.common),
+		Permissions: (*EntryPermissionsService)(&c.common),
 	}
 	c.Vaults = (*Vaults)(&c.common)
 }
