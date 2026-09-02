@@ -38,6 +38,10 @@ func test_isLogged(t *testing.T) {
 		t.Fatalf("expected token to be valid but isLogged returned %t", islogged)
 	}
 
+	if testClient.credential.useApiKey() {
+		t.Skip("token invalidation does not apply to API key authentication")
+	}
+
 	invalidClient := testClient
 	invalidClient.credential.token = "placeholder"
 	islogged, err = invalidClient.isLogged()
@@ -50,7 +54,14 @@ func test_isLogged(t *testing.T) {
 }
 
 func setupTestClient() error {
-	c, err := NewClient(os.Getenv("TEST_USER"), os.Getenv("TEST_PASSWORD"), os.Getenv("TEST_INSTANCE"))
+	var c Client
+	var err error
+
+	if apiKey := os.Getenv("TEST_API_KEY"); apiKey != "" {
+		c, err = NewClientWithApiKey(apiKey, os.Getenv("TEST_INSTANCE"))
+	} else {
+		c, err = NewClient(os.Getenv("TEST_USER"), os.Getenv("TEST_PASSWORD"), os.Getenv("TEST_INSTANCE"))
+	}
 	if err != nil {
 		return err
 	}
