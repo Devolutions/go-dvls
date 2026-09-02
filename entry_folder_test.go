@@ -201,6 +201,7 @@ func Test_NestedFolders(t *testing.T) {
 func Test_GetFolderByName(t *testing.T) {
 	vault := createTestVault(t, "folder-getbyname")
 	testPath := "go-dvls\\folder-getbyname"
+	createTestFolderPath(t, vault.Id, testPath)
 
 	entry := Entry{
 		VaultId: vault.Id,
@@ -257,6 +258,7 @@ func Test_GetFolderByName(t *testing.T) {
 func Test_GetFolderEntries_Filters(t *testing.T) {
 	vault := createTestVault(t, "folder-getentries")
 	testPath := "go-dvls\\folder-getentries"
+	createTestFolderPath(t, vault.Id, testPath)
 
 	// Create 3 test folder entries - "Database" is exact match, others contain "Database" in name
 	entriesToCreate := []Entry{
