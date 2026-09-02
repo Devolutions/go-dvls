@@ -13,6 +13,8 @@
 
 Heavily based on the information found on the [Devolutions.Server](https://github.com/Devolutions/devolutions-server/tree/main/Powershell%20Module/Devolutions.Server) powershell module.
 
+Users, applications and user groups (`client.Users`, `client.UserGroups`) expose the principal ids used as assignees in role assignments and as roles in entry permissions.
+
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
 - Add the import `import "github.com/Devolutions/go-dvls"`

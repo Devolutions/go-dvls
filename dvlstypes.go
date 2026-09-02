@@ -33,6 +33,19 @@ const (
 	UserAuthenticationAzureAD
 	UserAuthenticationApplication
 	UserAuthenticationOkta
+	UserAuthenticationPingOne
+	UserAuthenticationContractor
+)
+
+//go:generate stringer -type=UserGroupType -trimprefix UserGroupType
+type UserGroupType uint8
+
+const (
+	UserGroupTypeActiveDirectory UserGroupType = iota
+	UserGroupTypeCustom
+	UserGroupTypeOffice365
+	UserGroupTypeOkta
+	UserGroupTypePingOne
 )
 
 //go:generate stringer -type=ServerLoginResult -trimprefix ServerLogin
