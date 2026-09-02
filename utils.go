@@ -1,6 +1,8 @@
 package dvls
 
 import (
+	"bytes"
+	"encoding/json"
 	"strconv"
 	"strings"
 )
@@ -36,4 +38,11 @@ func sliceToKeywords(kw []string) string {
 	kString := strings.Join(keywords, " ")
 
 	return kString
+}
+
+// jsonValuePresent reports whether a raw JSON value holds anything other than
+// nothing or null.
+func jsonValuePresent(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null"))
 }

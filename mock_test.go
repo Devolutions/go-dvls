@@ -8,6 +8,8 @@ import (
 
 const testVaultID = "test-vault-id"
 
+const testEntryID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
 func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 	t.Helper()
 

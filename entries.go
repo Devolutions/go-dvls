@@ -40,6 +40,7 @@ type Entries struct {
 	Credential  *EntryCredentialService
 	Website     *EntryWebsiteService
 	Folder      *EntryFolderService
+	Permissions *EntryPermissionsService
 }
 
 type Entry struct {
