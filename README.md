@@ -13,6 +13,8 @@
 
 Heavily based on the information found on the [Devolutions.Server](https://github.com/Devolutions/devolutions-server/tree/main/Powershell%20Module/Devolutions.Server) powershell module.
 
+Administrative roles and role assignments (`client.AdministrativeRoles`, `client.AdministrativeRoleAssignments`) require DVLS 2026.3 or later.
+
 Users, applications and user groups (`client.Users`, `client.UserGroups`) expose the principal IDs used as assignees in role assignments and as roles in entry permissions.
 
 ## Usage
