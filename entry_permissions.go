@@ -43,6 +43,10 @@ func (c *EntryPermissionsService) Get(entryId string) (EntrySecurity, error) {
 // Returns ErrEntryNotFound if no entry is found.
 // The provided context can be used to cancel the request.
 func (c *EntryPermissionsService) GetWithContext(ctx context.Context, entryId string) (EntrySecurity, error) {
+	if entryId == "" {
+		return EntrySecurity{}, fmt.Errorf("entry id is required")
+	}
+
 	connectionJson, err := c.getPartialConnection(ctx, entryId)
 	if err != nil {
 		return EntrySecurity{}, err
@@ -99,6 +103,9 @@ func (c *EntryPermissionsService) SetWithContext(ctx context.Context, entryId st
 	err = json.Unmarshal(connectionJson, &connection)
 	if err != nil {
 		return fmt.Errorf("failed to unmarshal response body: %w", err)
+	}
+	if connection == nil {
+		return fmt.Errorf("response data is null")
 	}
 
 	securityNode := map[string]json.RawMessage{}
