@@ -19,15 +19,18 @@ func _() {
 	_ = x[UserAuthenticationAzureAD-8]
 	_ = x[UserAuthenticationApplication-9]
 	_ = x[UserAuthenticationOkta-10]
+	_ = x[UserAuthenticationPingOne-11]
+	_ = x[UserAuthenticationContractor-12]
 }
 
-const _UserAuthenticationType_name = "BuiltinLocalWindowsSqlServerDomainOffice365NoneCloudLegacyAzureADApplicationOkta"
+const _UserAuthenticationType_name = "BuiltinLocalWindowsSqlServerDomainOffice365NoneCloudLegacyAzureADApplicationOktaPingOneContractor"
 
-var _UserAuthenticationType_index = [...]uint8{0, 7, 19, 28, 34, 43, 47, 52, 58, 65, 76, 80}
+var _UserAuthenticationType_index = [...]uint8{0, 7, 19, 28, 34, 43, 47, 52, 58, 65, 76, 80, 87, 97}
 
 func (i UserAuthenticationType) String() string {
-	if i >= UserAuthenticationType(len(_UserAuthenticationType_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_UserAuthenticationType_index)-1 {
 		return "UserAuthenticationType(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _UserAuthenticationType_name[_UserAuthenticationType_index[i]:_UserAuthenticationType_index[i+1]]
+	return _UserAuthenticationType_name[_UserAuthenticationType_index[idx]:_UserAuthenticationType_index[idx+1]]
 }

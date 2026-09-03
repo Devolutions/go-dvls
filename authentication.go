@@ -22,6 +22,8 @@ type Client struct {
 	Vaults                        *Vaults
 	AdministrativeRoles           *AdministrativeRoles
 	AdministrativeRoleAssignments *AdministrativeRoleAssignments
+	Users                         *Users
+	UserGroups                    *UserGroups
 }
 
 type service struct {
@@ -96,10 +98,13 @@ func (c *Client) initServices() {
 		Folder:      (*EntryFolderService)(&c.common),
 		Host:        (*EntryHostService)(&c.common),
 		Website:     (*EntryWebsiteService)(&c.common),
+		Permissions: (*EntryPermissionsService)(&c.common),
 	}
 	c.Vaults = (*Vaults)(&c.common)
 	c.AdministrativeRoles = (*AdministrativeRoles)(&c.common)
 	c.AdministrativeRoleAssignments = (*AdministrativeRoleAssignments)(&c.common)
+	c.Users = (*Users)(&c.common)
+	c.UserGroups = (*UserGroups)(&c.common)
 }
 
 func (c *Client) login() error {

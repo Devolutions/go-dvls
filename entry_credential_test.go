@@ -128,6 +128,7 @@ func Test_CredentialCRUD(t *testing.T) {
 	for _, tc := range credentialTestCases {
 		t.Run(tc.name, func(t *testing.T) {
 			testPath := "go-dvls\\credentials\\" + strings.ToLower(tc.name)
+			createTestFolderPath(t, vault.Id, testPath)
 
 			// Create entry
 			t.Logf("Creating %s entry: %q", tc.subType, tc.entryName)
@@ -186,6 +187,7 @@ func Test_CredentialCRUD(t *testing.T) {
 func Test_GetEntries_Filters(t *testing.T) {
 	vault := createTestVault(t, "getentries")
 	testPath := "go-dvls\\getentries"
+	createTestFolderPath(t, vault.Id, testPath)
 
 	// Create 3 test entries - "Server" is exact match, others contain "Server" in name
 	entriesToCreate := []Entry{
@@ -280,6 +282,9 @@ func Test_GetEntries_PathFilter(t *testing.T) {
 	similarPath := "go-dvls\\pathfilterother"
 	rootPath := ""
 
+	createTestFolderPath(t, vault.Id, subPath)
+	createTestFolderPath(t, vault.Id, similarPath)
+
 	newEntry := func(name, path string) Entry {
 		return Entry{
 			VaultId: vault.Id,
@@ -341,6 +346,7 @@ func Test_GetEntries_PathFilter(t *testing.T) {
 func Test_GetByName(t *testing.T) {
 	vault := createTestVault(t, "getbyname")
 	testPath := "go-dvls\\getbyname"
+	createTestFolderPath(t, vault.Id, testPath)
 
 	entry := Entry{
 		VaultId: vault.Id,
