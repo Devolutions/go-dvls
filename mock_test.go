@@ -8,6 +8,12 @@ import (
 
 const testVaultID = "test-vault-id"
 
+const (
+	testRoleID     = "11111111-2222-3333-4444-555555555555"
+	testAssigneeID = "66666666-7777-8888-9999-000000000000"
+	testUserID     = "12121212-3434-5656-7878-909090909090"
+)
+
 const testEntryID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
 func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
