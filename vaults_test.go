@@ -220,6 +220,10 @@ func test_UpdateVault(t *testing.T) {
 // 1. System vaults (Default, User vault) return VaultContentTypeDefault ("Default")
 // 2. VaultContentTypeDefault is automatically converted to VaultContentTypeEverything on creation
 func test_ContentType_DefaultEquivalence(t *testing.T) {
+	if testVaultId == "" {
+		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	}
+
 	// Verify system vaults use "Default"
 	vault, err := testClient.Vaults.Get(testVaultId)
 	require.NoError(t, err)

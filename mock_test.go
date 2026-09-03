@@ -14,6 +14,8 @@ const (
 	testUserID     = "12121212-3434-5656-7878-909090909090"
 )
 
+const testEntryID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+
 func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 	t.Helper()
 

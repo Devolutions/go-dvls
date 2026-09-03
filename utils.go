@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -94,4 +95,11 @@ func singleByName[T any](items []T, name string, nameOf func(T) string, notFound
 		var zero T
 		return zero, multiple
 	}
+}
+
+// jsonValuePresent reports whether a raw JSON value holds anything other than
+// nothing or null.
+func jsonValuePresent(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && !bytes.Equal(trimmed, []byte("null"))
 }

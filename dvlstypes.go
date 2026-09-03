@@ -245,3 +245,59 @@ const (
 	EntryCertificateDataModeURL  EntryCertificateDataMode = 3
 	EntryCertificateDataModeFile EntryCertificateDataMode = 2
 )
+
+//go:generate stringer -type=SecurityRoleOverride -trimprefix SecurityRoleOverride
+type SecurityRoleOverride uint8
+
+const (
+	SecurityRoleOverrideDefault SecurityRoleOverride = iota
+	SecurityRoleOverrideCustom
+	SecurityRoleOverrideInherited
+	SecurityRoleOverrideEveryone
+	SecurityRoleOverrideNever
+	SecurityRoleOverrideCustomInherited
+)
+
+//go:generate stringer -type=SecurityRoleRight -trimprefix SecurityRoleRight
+type SecurityRoleRight uint8
+
+const (
+	SecurityRoleRightView SecurityRoleRight = iota
+	SecurityRoleRightViewPassword
+	SecurityRoleRightAdd
+	SecurityRoleRightDelete
+	SecurityRoleRightEdit
+	SecurityRoleRightEditStatus
+	SecurityRoleRightEditDescription
+	SecurityRoleRightEditSecurity
+	SecurityRoleRightPasswordHistory
+	SecurityRoleRightConnectionHistory
+	SecurityRoleRightRemoteTools
+	SecurityRoleRightAttachment
+	SecurityRoleRightEditAttachment
+	SecurityRoleRightInventory
+	SecurityRoleRightViewLogs
+	SecurityRoleRightHandbook
+	SecurityRoleRightEditHandbook
+	SecurityRoleRightWebManagementTools
+	SecurityRoleRightConsoleManagementTools
+	SecurityRoleRightMacroScriptTools
+	SecurityRoleRightMacroScriptToolsEntry
+	SecurityRoleRightEditPassword
+	SecurityRoleRightExecute
+	SecurityRoleRightViewSessionRecording
+	SecurityRoleRightViewInformation
+	SecurityRoleRightExport
+	SecurityRoleRightEditInformation
+	SecurityRoleRightMove
+	SecurityRoleRightDeleteHandbook
+	SecurityRoleRightViewSensitiveInformation
+	SecurityRoleRightResetPassword
+	SecurityRoleRightApproveCheckoutRequest
+	SecurityRoleRightForceCheckin
+	SecurityRoleRightCheckout
+	SecurityRoleRightReadLogs
+	SecurityRoleRightSealed
+	SecurityRoleRightEditVPNSSHGatewayConfiguration
+	SecurityRoleRightEditSessionRecordingConfiguration
+)
