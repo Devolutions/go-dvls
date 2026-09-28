@@ -30,6 +30,38 @@ func TestNewClient_Login(t *testing.T) {
 	assert.NotNil(t, client.Vaults)
 }
 
+func TestRequest_ReloginAfterTokenExpiry(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Empty(t, r.Header.Get("tokenId"), "login must not send the expired token")
+		w.Write([]byte(`{"tokenId":"new-token"}`))
+	})
+	mux.HandleFunc("/api/is-logged", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("tokenId") == "new-token" {
+			w.Write([]byte("true"))
+			return
+		}
+		w.Write([]byte("false"))
+	})
+	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "new-token", r.Header.Get("tokenId"))
+		w.Write([]byte(`{"result":1}`))
+	})
+
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	client := &Client{
+		baseUri:    server.URL,
+		client:     server.Client(),
+		credential: credentials{appKey: "test-key", appSecret: "test-secret", token: "expired-token"},
+	}
+
+	_, err := client.Request(server.URL+"/api/v1/vault", http.MethodGet, nil)
+	require.NoError(t, err)
+	assert.Equal(t, "new-token", client.credential.token)
+}
+
 func TestNewClientWithApiKey(t *testing.T) {
 	mux := http.NewServeMux()
 	loginCalled := false
