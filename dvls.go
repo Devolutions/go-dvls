@@ -76,14 +76,14 @@ func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod s
 		opts = options[0]
 	}
 
-	resp, err := c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, reqBody, opts)
+	resp, err := c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, c.credential.token, reqBody, opts)
 	if err != nil {
 		return Response{}, err
 	}
 	return resp, nil
 }
 
-func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMethod string, contentType string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
+func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMethod string, contentType string, token string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
 	var opts RequestOptions
 	if len(options) > 0 {
 		opts = options[0]
@@ -97,8 +97,8 @@ func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMetho
 	req.Header.Add("Content-Type", contentType)
 	if c.credential.useApiKey() {
 		req.Header.Add("Authorization", "Bearer "+c.credential.apiKey)
-	} else {
-		req.Header.Add("tokenId", c.credential.token)
+	} else if token != "" {
+		req.Header.Add("tokenId", token)
 	}
 
 	resp, err := c.client.Do(req)
