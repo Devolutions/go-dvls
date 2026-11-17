@@ -39,6 +39,14 @@ func main() {
 }
 ```
 
+`NewClient` logs in without a deadline. Use `NewClientWithContext` to cancel the initial login or give it a timeout:
+``` go
+ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+defer cancel()
+
+c, err := dvls.NewClientWithContext(ctx, "appKey", "appSecret", "https://your-dvls-instance.com")
+```
+
 Using an API key:
 ``` go
 package main
