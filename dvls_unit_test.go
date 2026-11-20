@@ -1,9 +1,11 @@
 package dvls
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -28,6 +30,89 @@ func TestNewClient_Login(t *testing.T) {
 	assert.Equal(t, "mock-token-123", client.credential.token)
 	assert.NotNil(t, client.Entries)
 	assert.NotNil(t, client.Vaults)
+}
+
+func TestNewClientWithContext_Login(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"result":1,"tokenId":"mock-token-123"}`))
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	client, err := NewClientWithContext(ctx, "test-key", "test-secret", server.URL)
+	require.NoError(t, err)
+	assert.Equal(t, "mock-token-123", client.credential.token)
+	assert.NotNil(t, client.Entries)
+	assert.NotNil(t, client.Vaults)
+}
+
+func TestNewClientWithContext_LoginCanceled(t *testing.T) {
+	loginReceived := make(chan struct{})
+	release := make(chan struct{})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		close(loginReceived)
+		<-release
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	errCh := make(chan error, 1)
+	go func() {
+		_, err := NewClientWithContext(ctx, "test-key", "test-secret", server.URL)
+		errCh <- err
+	}()
+
+	select {
+	case <-loginReceived:
+	case <-time.After(5 * time.Second):
+		t.Fatal("login request never reached the server")
+	}
+	cancel()
+
+	select {
+	case err := <-errCh:
+		require.Error(t, err)
+		assert.ErrorContains(t, err, context.Canceled.Error())
+	case <-time.After(5 * time.Second):
+		t.Fatal("NewClientWithContext did not return after the context was canceled")
+	}
+}
+
+func TestNewClientWithContext_LoginDeadlineExceeded(t *testing.T) {
+	release := make(chan struct{})
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		<-release
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+	t.Cleanup(func() { close(release) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+
+	client, err := NewClientWithContext(ctx, "test-key", "test-secret", server.URL)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, context.DeadlineExceeded.Error())
+	assert.Equal(t, Client{}, client)
 }
 
 func TestRequest_ReloginAfterTokenExpiry(t *testing.T) {

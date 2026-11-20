@@ -54,7 +54,16 @@ const loginContentType = "application/x-www-form-urlencoded"
 
 // NewClient returns a new Client configured with the specified credentials and
 // base URI. baseUri should be the full URI to your DVLS instance (ex.: https://dvls.your-dvls-instance.com)
+// The initial login has no deadline. To bound or cancel it, use NewClientWithContext instead.
 func NewClient(appKey string, appSecret string, baseUri string) (Client, error) {
+	return NewClientWithContext(context.Background(), appKey, appSecret, baseUri)
+}
+
+// NewClientWithContext returns a new Client configured with the specified credentials and
+// base URI. baseUri should be the full URI to your DVLS instance (ex.: https://dvls.your-dvls-instance.com)
+// The provided context applies to the initial login request only and can be used to cancel it
+// or to give it a deadline. It is not retained by the returned Client.
+func NewClientWithContext(ctx context.Context, appKey string, appSecret string, baseUri string) (Client, error) {
 	credential := credentials{appKey: appKey, appSecret: appSecret}
 	client := Client{
 		client:     &http.Client{},
@@ -62,7 +71,7 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 		credential: credential,
 	}
 
-	err := client.login()
+	err := client.loginWithContext(ctx)
 	if err != nil {
 		return Client{}, fmt.Errorf("login failed \"%w\"", err)
 	}
@@ -105,10 +114,6 @@ func (c *Client) initServices() {
 	c.AdministrativeRoleAssignments = (*AdministrativeRoleAssignments)(&c.common)
 	c.Users = (*Users)(&c.common)
 	c.UserGroups = (*UserGroups)(&c.common)
-}
-
-func (c *Client) login() error {
-	return c.loginWithContext(context.Background())
 }
 
 func (c *Client) loginWithContext(ctx context.Context) error {
