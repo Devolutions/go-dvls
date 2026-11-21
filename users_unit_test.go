@@ -10,7 +10,7 @@ import (
 
 const (
 	testUserJSON        = `{"id":"` + testUserID + `","username":"jdoe","fullName":"John Doe","email":"j@x","identityProvider":"EntraId","isEnabled":true,"isWorkspaceOwner":false}`
-	testApplicationJSON = `{"id":"` + testAssigneeID + `","name":"ci","appKey":"ci","isEnabled":true,"isWorkspaceOwner":true}`
+	testApplicationJSON = `{"id":"` + testAssigneeID + `","name":"CI pipeline","appKey":"ci","isEnabled":true,"isWorkspaceOwner":true}`
 )
 
 func TestUsersListAndGet(t *testing.T) {
@@ -77,9 +77,10 @@ func TestUsersApplications(t *testing.T) {
 	mux.HandleFunc("/api/v2/application-identity", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		if r.URL.Query().Has("name") {
-			assert.Equal(t, "ci", r.URL.Query().Get("name"))
+		if r.URL.Query().Has("appKey") {
+			assert.Equal(t, "ci", r.URL.Query().Get("appKey"))
 		}
+		assert.False(t, r.URL.Query().Has("name"), "an application identity is looked up by its unique appKey, not its display name")
 		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[` + testApplicationJSON + `]}`))
 	})
 	mux.HandleFunc("/api/v2/application-identity/"+testAssigneeID, func(w http.ResponseWriter, r *http.Request) {
@@ -90,7 +91,7 @@ func TestUsersApplications(t *testing.T) {
 
 	client := newTestClient(t, mux)
 
-	want := ApplicationIdentity{Id: testAssigneeID, Name: "ci", AppKey: "ci", IsEnabled: true, IsWorkspaceOwner: true}
+	want := ApplicationIdentity{Id: testAssigneeID, Name: "CI pipeline", AppKey: "ci", IsEnabled: true, IsWorkspaceOwner: true}
 
 	apps, err := client.Users.ListApplications()
 	require.NoError(t, err)

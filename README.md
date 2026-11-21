@@ -53,7 +53,8 @@ Breaking changes:
 - `AdministrativeRole`: `AssignableScopes` replaces `SupportedScopes`; `RequiredPermissionOnScope`, `IsAssignable`,
   `IsPam`, `IsPrivileged` and `IsUsed` are removed.
 - `User`: `IdentityProvider` replaces `AuthenticationType` and `IsWorkspaceOwner` replaces `IsAdministrator`;
-  `UserGroups` is removed. `Users.ListApplications` and `GetApplicationByName` return `ApplicationIdentity`.
+  `UserGroups` is removed. `Users.ListApplications` and `GetApplicationByName` return `ApplicationIdentity`;
+  `GetApplicationByName` matches the unique application key (`AppKey`), not the display name (`Name`).
   `UserGroup`: `IsWorkspaceOwner` replaces `IsAdministrator`, `IsEnabled` is added.
 - `EntryCertificate.Expiration` is returned in UTC and an update with a zero `Expiration` clears it.
   `EntryHost` and `EntryWebsite` lose `ConnectionType`; `EntryWebsite.ConnectionSubType` is the browser and

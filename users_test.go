@@ -42,7 +42,7 @@ func Test_Applications(t *testing.T) {
 		assert.NotEmpty(t, a.AppKey)
 	}
 
-	app, err := testClient.Users.GetApplicationByName(apps[0].Name)
+	app, err := testClient.Users.GetApplicationByName(apps[0].AppKey)
 	require.NoError(t, err)
 	assert.Equal(t, apps[0].Id, app.Id)
 

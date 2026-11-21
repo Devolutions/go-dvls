@@ -41,7 +41,8 @@ type User struct {
 	IsEnabled        bool             `json:"isEnabled"`
 }
 
-// ApplicationIdentity represents a DVLS application identity. AppKey is the key it logs in with.
+// ApplicationIdentity represents a DVLS application identity. AppKey is the unique key it logs in with; Name is its
+// display name, which several identities can share.
 type ApplicationIdentity struct {
 	Id               string `json:"id"`
 	Name             string `json:"name"`
@@ -154,23 +155,22 @@ func (c *Users) GetApplicationWithContext(ctx context.Context, applicationId str
 	return app, nil
 }
 
-// GetApplicationByName returns a single application identity based on its name. The name matches ignoring case.
+// GetApplicationByName returns a single application identity based on its application key (AppKey), which is
+// unique; the display name (Name) is not. The key matches ignoring case.
 // Returns ErrUserNotFound if no application identity is found.
-// Returns ErrMultipleUsersFound if more than one application identity matches the name.
-func (c *Users) GetApplicationByName(name string) (ApplicationIdentity, error) {
-	return c.GetApplicationByNameWithContext(context.Background(), name)
+func (c *Users) GetApplicationByName(appKey string) (ApplicationIdentity, error) {
+	return c.GetApplicationByNameWithContext(context.Background(), appKey)
 }
 
-// GetApplicationByNameWithContext returns a single application identity based on its name. The name matches
-// ignoring case.
+// GetApplicationByNameWithContext returns a single application identity based on its application key (AppKey),
+// which is unique; the display name (Name) is not. The key matches ignoring case.
 // Returns ErrUserNotFound if no application identity is found.
-// Returns ErrMultipleUsersFound if more than one application identity matches the name.
 // The provided context can be used to cancel the request.
-func (c *Users) GetApplicationByNameWithContext(ctx context.Context, name string) (ApplicationIdentity, error) {
-	apps, err := c.listApplications(ctx, url.Values{"name": {name}})
+func (c *Users) GetApplicationByNameWithContext(ctx context.Context, appKey string) (ApplicationIdentity, error) {
+	apps, err := c.listApplications(ctx, url.Values{"appKey": {appKey}})
 	if err != nil {
 		return ApplicationIdentity{}, err
 	}
 
-	return singleByName(apps, name, func(a ApplicationIdentity) string { return a.Name }, ErrUserNotFound, ErrMultipleUsersFound)
+	return singleByName(apps, appKey, func(a ApplicationIdentity) string { return a.AppKey }, ErrUserNotFound, ErrMultipleUsersFound)
 }
