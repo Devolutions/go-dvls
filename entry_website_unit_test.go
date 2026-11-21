@@ -14,7 +14,7 @@ func TestWebsiteGetAndDetails(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Query().Get("includePasswords") == "false" {
-			w.Write([]byte(`{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"w1","path":"","type":"WebBrowser","subType":"GoogleChrome","tags":[],"data":{"url":"https://x","username":"wu"}}`))
+			w.Write([]byte(`{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"w1","path":"","type":"WebBrowser","subType":"GoogleChrome","tags":[],"data":{"url":"https://x","username":"wu","credentialMode":"Inherited"}}`))
 			return
 		}
 		w.Write([]byte(`{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"w1","path":"","type":"WebBrowser","subType":"GoogleChrome","tags":[],"data":{"url":"https://x","username":"wu","password":"wp"}}`))
@@ -28,6 +28,7 @@ func TestWebsiteGetAndDetails(t *testing.T) {
 	assert.Equal(t, "https://x", site.WebsiteDetails.URL)
 	assert.Equal(t, "wu", site.WebsiteDetails.Username)
 	assert.Nil(t, site.WebsiteDetails.Password)
+	assert.Equal(t, EntryCredentialModeInherited, site.WebsiteDetails.CredentialMode)
 
 	site, err = client.Entries.Website.GetWebsiteDetails(site)
 	require.NoError(t, err)

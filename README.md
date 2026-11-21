@@ -60,6 +60,10 @@ Breaking changes:
 - `EntryCertificate.Expiration` is returned in UTC and an update with a zero `Expiration` clears it.
   `EntryHost` and `EntryWebsite` lose `ConnectionType`; `EntryWebsite.ConnectionSubType` is the browser and
   `WebBrowserApplication` is removed.
+- `Entries.Host.GetHostDetails` and `Entries.Website.GetWebsiteDetails` return the username and password stored on
+  the entry, no longer the resolved credentials: for an entry whose credentials are linked, inherited or come from
+  elsewhere they are empty or stale. `HostDetails.CredentialMode` / `WebsiteDetails.CredentialMode` and
+  `CredentialEntryId` tell where the entry takes its credentials from.
 - `GetServerInfo` (version only) replaces `GetPublicServerInfo` and `GetPrivateServerInfo`; `GetServerTimezones` is
   removed. `Response` holds only the body, `Response.CheckRespSaveResult` and `RequestOptions.RawBody` are removed.
 - Behaviour: name lookups (`GetByName`, `GetEntriesOptions.Name`) match ignoring case. A vault created with

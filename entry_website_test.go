@@ -34,8 +34,9 @@ func Test_EntryWebsite(t *testing.T) {
 	testWebsiteEntry.Id = testWebsiteEntryId
 	testWebsiteEntry.VaultId = testVaultId
 	testWebsiteEntry.WebsiteDetails = EntryWebsiteAuthDetails{
-		Username: testWebsiteUsername,
-		URL:      testWebsiteURL,
+		Username:       testWebsiteUsername,
+		URL:            testWebsiteURL,
+		CredentialMode: EntryCredentialModeCustom,
 	}
 
 	t.Run("GetEntry", test_GetWebsiteEntry)

@@ -33,8 +33,9 @@ func Test_EntryHost(t *testing.T) {
 	testHostEntry.Id = testHostEntryId
 	testHostEntry.VaultId = testVaultId
 	testHostEntry.HostDetails = EntryHostAuthDetails{
-		Username: testHostUsername,
-		Host:     testHost,
+		Username:       testHostUsername,
+		Host:           testHost,
+		CredentialMode: EntryCredentialModeCustom,
 	}
 
 	t.Run("GetEntry", test_GetHostEntry)

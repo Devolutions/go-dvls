@@ -24,17 +24,22 @@ type EntryHost struct {
 	HostDetails EntryHostAuthDetails
 }
 
-// EntryHostAuthDetails represents host-specific fields
+// EntryHostAuthDetails represents host-specific fields. Username and Password are the values stored on the entry,
+// not the resolved credentials: see EntryCredentialMode.
 type EntryHostAuthDetails struct {
-	Username string
-	Password *string
-	Host     string
+	Username          string
+	Password          *string
+	Host              string
+	CredentialMode    EntryCredentialMode
+	CredentialEntryId string
 }
 
 type entryHostData struct {
-	Host     string  `json:"host"`
-	Username string  `json:"username"`
-	Password *string `json:"password"`
+	Host              string              `json:"host"`
+	Username          string              `json:"username"`
+	Password          *string             `json:"password"`
+	CredentialMode    EntryCredentialMode `json:"credentialMode"`
+	CredentialEntryId string              `json:"credentialEntryId"`
 }
 
 func hostFromRaw(raw rawEntry) (EntryHost, error) {
@@ -58,7 +63,13 @@ func hostFromRaw(raw rawEntry) (EntryHost, error) {
 		EntryFolderPath: raw.Path,
 		ModifiedDate:    raw.ModifiedOn,
 		Tags:            raw.Tags,
-		HostDetails:     EntryHostAuthDetails{Username: data.Username, Password: data.Password, Host: data.Host},
+		HostDetails: EntryHostAuthDetails{
+			Username:          data.Username,
+			Password:          data.Password,
+			Host:              data.Host,
+			CredentialMode:    data.CredentialMode,
+			CredentialEntryId: data.CredentialEntryId,
+		},
 	}, nil
 }
 
@@ -80,12 +91,15 @@ func (s *EntryHostService) GetWithContext(ctx context.Context, vaultId string, e
 	return hostFromRaw(raw)
 }
 
-// GetHostDetails returns entry with the entry.HostDetails.Password field.
+// GetHostDetails returns entry with the entry.HostDetails.Password field: the password stored on the entry, empty
+// when its credentials come from elsewhere (HostDetails.CredentialMode other than EntryCredentialModeCustom).
 func (s *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
 	return s.GetHostDetailsWithContext(context.Background(), entry)
 }
 
-// GetHostDetailsWithContext returns entry with the entry.HostDetails.Password field.
+// GetHostDetailsWithContext returns entry with the entry.HostDetails.Password field: the password stored on the
+// entry, empty when its credentials come from elsewhere (HostDetails.CredentialMode other than
+// EntryCredentialModeCustom).
 // The provided context can be used to cancel the request.
 func (s *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry EntryHost) (EntryHost, error) {
 	raw, err := s.client.getRawEntry(ctx, entry.VaultId, entry.Id, nil)
@@ -99,6 +113,8 @@ func (s *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry 
 	}
 
 	entry.HostDetails.Password = stored.HostDetails.Password
+	entry.HostDetails.CredentialMode = stored.HostDetails.CredentialMode
+	entry.HostDetails.CredentialEntryId = stored.HostDetails.CredentialEntryId
 
 	return entry, nil
 }

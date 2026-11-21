@@ -28,6 +28,23 @@ func IsUnsupportedEntryType(err error) bool {
 	return errors.As(err, &unsupportedErr)
 }
 
+// EntryCredentialMode is where a host or website entry takes its credentials from. The API returns the username and
+// password stored on the entry, never the resolved ones: for any mode other than EntryCredentialModeCustom they are
+// not the credentials the entry uses. A Linked entry uses the credential entry CredentialEntryId, an Inherited entry
+// the credentials of its parent folder.
+type EntryCredentialMode string
+
+const (
+	EntryCredentialModeCustom    EntryCredentialMode = "Custom"
+	EntryCredentialModeInherited EntryCredentialMode = "Inherited"
+	EntryCredentialModeLinked    EntryCredentialMode = "Linked"
+	EntryCredentialModeMyDefault EntryCredentialMode = "MyDefault"
+	EntryCredentialModeNone      EntryCredentialMode = "None"
+	EntryCredentialModeUserVault EntryCredentialMode = "UserVault"
+	// EntryCredentialModeOther is a mode the API reads but does not set, such as a privileged account.
+	EntryCredentialModeOther EntryCredentialMode = "Other"
+)
+
 type Entries struct {
 	Certificate *EntryCertificateService
 	Host        *EntryHostService

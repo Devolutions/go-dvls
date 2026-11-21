@@ -25,17 +25,22 @@ type EntryWebsite struct {
 	WebsiteDetails EntryWebsiteAuthDetails
 }
 
-// EntryWebsiteAuthDetails represents website-specific fields
+// EntryWebsiteAuthDetails represents website-specific fields. Username and Password are the values stored on the
+// entry, not the resolved credentials: see EntryCredentialMode.
 type EntryWebsiteAuthDetails struct {
-	Username string
-	Password *string
-	URL      string
+	Username          string
+	Password          *string
+	URL               string
+	CredentialMode    EntryCredentialMode
+	CredentialEntryId string
 }
 
 type entryWebsiteData struct {
-	Url      string  `json:"url"`
-	Username string  `json:"username"`
-	Password *string `json:"password"`
+	Url               string              `json:"url"`
+	Username          string              `json:"username"`
+	Password          *string             `json:"password"`
+	CredentialMode    EntryCredentialMode `json:"credentialMode"`
+	CredentialEntryId string              `json:"credentialEntryId"`
 }
 
 func websiteFromRaw(raw rawEntry) (EntryWebsite, error) {
@@ -60,7 +65,13 @@ func websiteFromRaw(raw rawEntry) (EntryWebsite, error) {
 		ModifiedDate:      raw.ModifiedOn,
 		ConnectionSubType: ServerConnectionSubType(raw.SubType),
 		Tags:              raw.Tags,
-		WebsiteDetails:    EntryWebsiteAuthDetails{Username: data.Username, Password: data.Password, URL: data.Url},
+		WebsiteDetails: EntryWebsiteAuthDetails{
+			Username:          data.Username,
+			Password:          data.Password,
+			URL:               data.Url,
+			CredentialMode:    data.CredentialMode,
+			CredentialEntryId: data.CredentialEntryId,
+		},
 	}, nil
 }
 
@@ -82,12 +93,15 @@ func (s *EntryWebsiteService) GetWithContext(ctx context.Context, vaultId string
 	return websiteFromRaw(raw)
 }
 
-// GetWebsiteDetails returns entry with the entry.WebsiteDetails.Password field.
+// GetWebsiteDetails returns entry with the entry.WebsiteDetails.Password field: the password stored on the entry,
+// empty when its credentials come from elsewhere (WebsiteDetails.CredentialMode other than EntryCredentialModeCustom).
 func (c *EntryWebsiteService) GetWebsiteDetails(entry EntryWebsite) (EntryWebsite, error) {
 	return c.GetWebsiteDetailsWithContext(context.Background(), entry)
 }
 
-// GetWebsiteDetailsWithContext returns entry with the entry.WebsiteDetails.Password field.
+// GetWebsiteDetailsWithContext returns entry with the entry.WebsiteDetails.Password field: the password stored on
+// the entry, empty when its credentials come from elsewhere (WebsiteDetails.CredentialMode other than
+// EntryCredentialModeCustom).
 // The provided context can be used to cancel the request.
 func (c *EntryWebsiteService) GetWebsiteDetailsWithContext(ctx context.Context, entry EntryWebsite) (EntryWebsite, error) {
 	raw, err := c.client.getRawEntry(ctx, entry.VaultId, entry.Id, nil)
@@ -101,6 +115,8 @@ func (c *EntryWebsiteService) GetWebsiteDetailsWithContext(ctx context.Context, 
 	}
 
 	entry.WebsiteDetails.Password = stored.WebsiteDetails.Password
+	entry.WebsiteDetails.CredentialMode = stored.WebsiteDetails.CredentialMode
+	entry.WebsiteDetails.CredentialEntryId = stored.WebsiteDetails.CredentialEntryId
 
 	return entry, nil
 }
