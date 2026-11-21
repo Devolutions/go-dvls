@@ -87,7 +87,7 @@ func TestFolderNewAndUpdate(t *testing.T) {
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
 			assert.Equal(t, "A", body["path"])
-			assert.Equal(t, map[string]any{"domain": "", "username": ""}, body["data"])
+			assert.Equal(t, map[string]any{}, body["data"], "empty folder credentials are not sent, so the stored ones are kept")
 			w.Write([]byte(`{}`))
 		case http.MethodGet:
 			w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A","type":"Folder","subType":"Folder","data":{}}`))

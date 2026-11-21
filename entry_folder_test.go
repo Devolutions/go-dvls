@@ -363,3 +363,35 @@ func Test_GetFolderEntries_Filters(t *testing.T) {
 	}
 	t.Log("Cleanup complete")
 }
+
+func Test_FolderUpdateKeepsCredentials(t *testing.T) {
+	vault := createTestVault(t, "folder-keeps-credentials")
+
+	id, err := testClient.Entries.Folder.New(Entry{
+		VaultId: vault.Id,
+		Name:    "WithCredentials",
+		Type:    EntryFolderType,
+		SubType: EntryFolderSubTypeFolder,
+		Data:    &EntryFolderData{Domain: "keep.local", Username: "keepuser"},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = testClient.Entries.Folder.DeleteById(vault.Id, id) })
+
+	_, err = testClient.Entries.Folder.Update(Entry{
+		Id:          id,
+		VaultId:     vault.Id,
+		Name:        "Renamed",
+		Type:        EntryFolderType,
+		SubType:     EntryFolderSubTypeFolder,
+		Description: "renamed without its credentials",
+		Data:        &EntryFolderData{},
+	})
+	require.NoError(t, err)
+
+	folder, err := testClient.Entries.Folder.GetById(vault.Id, id)
+	require.NoError(t, err)
+	assert.Equal(t, "Renamed", folder.Name)
+	data, ok := folder.GetFolderData()
+	require.True(t, ok)
+	assert.Equal(t, EntryFolderData{Domain: "keep.local", Username: "keepuser"}, *data, "an update without folder credentials keeps the stored ones")
+}

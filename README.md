@@ -71,7 +71,8 @@ Breaking changes:
   removed. `Response` holds only the body, `Response.CheckRespSaveResult` and `RequestOptions.RawBody` are removed.
 - Behaviour: name lookups (`GetByName`, `GetEntriesOptions.Name`) match ignoring case. A vault created with
   `VaultContentTypeDefault` keeps `Default`. Entry tags come back sorted. On an update, the non-secret data fields
-  are always sent, so an empty one is cleared, while an empty secret keeps the stored one. A folder's `Path` is its
+  are always sent, so an empty one is cleared, while an empty secret keeps the stored one. The exception is a
+  folder's `EntryFolderData`: an empty `Domain` or `Username` is not sent and keeps the stored value. A folder's `Path` is its
   parent folder everywhere (it used to read as its own full path): `GetEntriesOptions.Path` lists a folder under its
   parent, not under itself, and an update sending the folder's own full path is refused.
 - The entry routes answer 404 for a vault the caller cannot open, the same answer as for an entry that does not

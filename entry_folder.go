@@ -31,9 +31,11 @@ var supportedFolderSubTypes = getSupportedSubTypes(EntryFolderType)
 
 type EntryFolderService service
 
+// EntryFolderData holds the credentials stored on a folder. An empty field is not sent, so an update keeps the stored
+// value: a folder update built without them does not clear the credentials its children may inherit.
 type EntryFolderData struct {
-	Domain   string `json:"domain"`
-	Username string `json:"username"`
+	Domain   string `json:"domain,omitempty"`
+	Username string `json:"username,omitempty"`
 }
 
 func (e *Entry) GetFolderData() (*EntryFolderData, bool) {
