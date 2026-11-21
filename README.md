@@ -8,17 +8,17 @@
 
 | go-dvls version | DVLS version                                                  |
 |-----------------|---------------------------------------------------------------|
-| 0.23.0+         | The first DVLS release with the public API v2 (`/api/v2`) and later |
+| 1.0.0+         | The first DVLS release with the public API v2 (`/api/v2`) and later |
 | 0.16.0 - 0.22.x | 2026.x                                                        |
 | 0.15.0          | 2024.x, 2025.x                                                |
 
-From 0.23.0, go-dvls calls only the DVLS public API v2 (`/api/v2`): it no longer calls `/api/v1` or the internal routes
+From 1.0.0, go-dvls calls only the DVLS public API v2 (`/api/v2`): it no longer calls `/api/v1` or the internal routes
 of the web interface, and it does not work with a DVLS server without `/api/v2`. Stay on 0.22.x for those servers.
 
 Users, application identities and user groups (`client.Users`, `client.UserGroups`) expose the principal IDs used as
 assignees in role assignments and in entry permissions.
 
-## Upgrading to 0.23.0
+## Upgrading to 1.0.0
 
 Sessions: an application identity token expires a fixed time after login (about 7 minutes) and v2 has no refresh
 operation. The client no longer checks the session before every request: when a request answers 401, it logs in again
