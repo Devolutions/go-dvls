@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -254,6 +255,213 @@ func TestRequest_ReloginSkippedWhenTokenAlreadyRefreshed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int32(0), logins.Load())
 	assert.Equal(t, "token-from-another-request", client.credential.currentToken())
+}
+
+func TestRequest_ReloginWaiterReturnsAtItsDeadline(t *testing.T) {
+	loginReceived := make(chan struct{})
+	release := make(chan struct{})
+	var logins atomic.Int32
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		if logins.Add(1) == 1 {
+			close(loginReceived)
+		}
+		<-release
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"tokenId":"new-token"}`))
+	})
+	mux.HandleFunc("/api/v2/me", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("tokenId") != "new-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message":"Missing or invalid token."}`))
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+
+	client := newTestClient(t, mux)
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	leaderErr := make(chan error, 1)
+	go func() {
+		_, err := client.Request(client.baseUri+"/api/v2/me", http.MethodGet, nil)
+		leaderErr <- err
+	}()
+
+	select {
+	case <-loginReceived:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the re-login never reached the server")
+	}
+
+	tokenRead := make(chan string, 1)
+	go func() { tokenRead <- client.credential.currentToken() }()
+	select {
+	case token := <-tokenRead:
+		assert.Equal(t, "test-token", token)
+	case <-time.After(time.Second):
+		t.Fatal("reading the token blocked on the login in flight")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	start := time.Now()
+	_, err := client.RequestWithContext(ctx, client.baseUri+"/api/v2/me", http.MethodGet, nil)
+	require.Error(t, err)
+	assert.ErrorIs(t, err, context.DeadlineExceeded)
+	assert.Less(t, time.Since(start), 2*time.Second, "the waiter must return at its own deadline, not when the login ends")
+
+	releaseOnce.Do(func() { close(release) })
+	select {
+	case err := <-leaderErr:
+		require.NoError(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the request that started the login did not complete")
+	}
+	assert.Equal(t, int32(1), logins.Load(), "the waiter must not start a second login")
+}
+
+func TestRequest_ConcurrentReloginsShareOneLogin(t *testing.T) {
+	const requests = 8
+	unauthorized := make(chan struct{}, requests)
+	release := make(chan struct{})
+	var logins atomic.Int32
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		logins.Add(1)
+		<-release
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"tokenId":"new-token"}`))
+	})
+	mux.HandleFunc("/api/v2/me", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("tokenId") != "new-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message":"Missing or invalid token."}`))
+			unauthorized <- struct{}{}
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+
+	client := newTestClient(t, mux)
+	var releaseOnce sync.Once
+	t.Cleanup(func() { releaseOnce.Do(func() { close(release) }) })
+
+	errs := make(chan error, requests)
+	for range requests {
+		go func() {
+			_, err := client.Request(client.baseUri+"/api/v2/me", http.MethodGet, nil)
+			errs <- err
+		}()
+	}
+
+	for range requests {
+		select {
+		case <-unauthorized:
+		case <-time.After(5 * time.Second):
+			t.Fatal("not every request reached the server")
+		}
+	}
+	releaseOnce.Do(func() { close(release) })
+
+	for range requests {
+		select {
+		case err := <-errs:
+			require.NoError(t, err)
+		case <-time.After(5 * time.Second):
+			t.Fatal("a request did not complete")
+		}
+	}
+	assert.Equal(t, int32(1), logins.Load())
+}
+
+func TestRequest_ReloginTakenOverWhenLeaderCanceled(t *testing.T) {
+	loginReceived := make(chan struct{})
+	unauthorized := make(chan struct{}, 2)
+	var logins atomic.Int32
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		if logins.Add(1) == 1 {
+			// The server notices the client went away only once the request body has been read.
+			io.Copy(io.Discard, r.Body)
+			close(loginReceived)
+			<-r.Context().Done()
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"tokenId":"new-token"}`))
+	})
+	mux.HandleFunc("/api/v2/me", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		if r.Header.Get("tokenId") != "new-token" {
+			w.WriteHeader(http.StatusUnauthorized)
+			w.Write([]byte(`{"message":"Missing or invalid token."}`))
+			unauthorized <- struct{}{}
+			return
+		}
+		w.Write([]byte(`{}`))
+	})
+
+	client := newTestClient(t, mux)
+
+	leaderCtx, cancelLeader := context.WithCancel(context.Background())
+	defer cancelLeader()
+
+	leaderErr := make(chan error, 1)
+	go func() {
+		_, err := client.RequestWithContext(leaderCtx, client.baseUri+"/api/v2/me", http.MethodGet, nil)
+		leaderErr <- err
+	}()
+
+	select {
+	case <-loginReceived:
+	case <-time.After(5 * time.Second):
+		t.Fatal("the re-login never reached the server")
+	}
+
+	waiterErr := make(chan error, 1)
+	go func() {
+		_, err := client.Request(client.baseUri+"/api/v2/me", http.MethodGet, nil)
+		waiterErr <- err
+	}()
+
+	for range 2 {
+		select {
+		case <-unauthorized:
+		case <-time.After(5 * time.Second):
+			t.Fatal("the second request never reached the server")
+		}
+	}
+	cancelLeader()
+
+	select {
+	case err := <-leaderErr:
+		assert.ErrorIs(t, err, context.Canceled)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the canceled request did not return")
+	}
+
+	select {
+	case err := <-waiterErr:
+		require.NoError(t, err, "a waiter whose context is live must log in itself when the login it waited on was canceled")
+	case <-time.After(5 * time.Second):
+		t.Fatal("the waiting request did not complete")
+	}
+	assert.Equal(t, int32(2), logins.Load())
+	assert.Equal(t, "new-token", client.credential.currentToken())
 }
 
 func TestRequest_ApiKeyDoesNotRelogin(t *testing.T) {

@@ -22,7 +22,8 @@ assignees in role assignments and in entry permissions.
 
 Sessions: an application identity token expires a fixed time after login (about 7 minutes) and v2 has no refresh
 operation. The client no longer checks the session before every request: when a request answers 401, it logs in again
-once and retries it. API key clients (`NewClientWithApiKey`) are unchanged.
+once and retries it. Concurrent requests that get a 401 share one login, and a request waiting for it returns when
+its own context is done. API key clients (`NewClientWithApiKey`) are unchanged.
 
 Breaking changes:
 

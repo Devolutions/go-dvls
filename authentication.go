@@ -2,6 +2,7 @@ package dvls
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -29,14 +30,21 @@ type service struct {
 }
 
 // credentials is shared by pointer: NewClient returns the Client by value, and every copy must see the token
-// a re-login stores.
+// a re-login stores. mu is never held across an HTTP exchange.
 type credentials struct {
 	appKey    string
 	appSecret string
 	apiKey    string
 
-	mu    sync.Mutex
-	token string
+	mu      sync.Mutex
+	token   string
+	refresh *refreshCall
+}
+
+// refreshCall is a login in flight: the requests that need a new token wait on done instead of logging in again.
+type refreshCall struct {
+	done chan struct{}
+	err  error
 }
 
 func (c *credentials) useApiKey() bool {
@@ -125,50 +133,95 @@ func (c *Client) initServices() {
 }
 
 func (c *Client) loginWithContext(ctx context.Context) error {
-	c.credential.mu.Lock()
-	defer c.credential.mu.Unlock()
-
-	return c.loginLocked(ctx)
-}
-
-// reloginWithContext logs in again unless another request already replaced staleToken.
-func (c *Client) reloginWithContext(ctx context.Context, staleToken string) error {
-	c.credential.mu.Lock()
-	defer c.credential.mu.Unlock()
-
-	if c.credential.token != staleToken {
-		return nil
-	}
-
-	return c.loginLocked(ctx)
-}
-
-func (c *Client) loginLocked(ctx context.Context) error {
-	reqUrl, err := url.JoinPath(c.baseUri, apiV2Prefix, loginEndpoint)
-	if err != nil {
-		return fmt.Errorf("failed to build login url: %w", err)
-	}
-
-	body, err := jsonBody(loginRequest{AppKey: c.credential.appKey, AppSecret: c.credential.appSecret})
+	token, err := c.login(ctx)
 	if err != nil {
 		return err
 	}
 
+	c.credential.mu.Lock()
+	c.credential.token = token
+	c.credential.mu.Unlock()
+
+	return nil
+}
+
+// reloginWithContext logs in again unless another request already replaced staleToken. Concurrent callers share
+// one login, and a caller waiting for it returns as soon as its own context is done. When the login fails only
+// because the context of the request that started it ended, a waiter whose context is still live logs in itself.
+func (c *Client) reloginWithContext(ctx context.Context, staleToken string) error {
+	cred := c.credential
+
+	for tookOver := false; ; tookOver = true {
+		cred.mu.Lock()
+		if cred.token != staleToken {
+			cred.mu.Unlock()
+			return nil
+		}
+
+		call := cred.refresh
+		if call == nil {
+			call = &refreshCall{done: make(chan struct{})}
+			cred.refresh = call
+			cred.mu.Unlock()
+
+			token, err := c.login(ctx)
+
+			cred.mu.Lock()
+			if err == nil {
+				cred.token = token
+			}
+			call.err = err
+			cred.refresh = nil
+			cred.mu.Unlock()
+			close(call.done)
+
+			return err
+		}
+		cred.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-call.done:
+		}
+
+		if call.err == nil {
+			return nil
+		}
+		if tookOver || !isContextError(call.err) {
+			return call.err
+		}
+	}
+}
+
+func isContextError(err error) bool {
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+}
+
+func (c *Client) login(ctx context.Context) (string, error) {
+	reqUrl, err := url.JoinPath(c.baseUri, apiV2Prefix, loginEndpoint)
+	if err != nil {
+		return "", fmt.Errorf("failed to build login url: %w", err)
+	}
+
+	body, err := jsonBody(loginRequest{AppKey: c.credential.appKey, AppSecret: c.credential.appSecret})
+	if err != nil {
+		return "", err
+	}
+
 	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodPost, defaultContentType, "", body)
 	if err != nil {
-		return fmt.Errorf("error while submitting login request: %w", err)
+		return "", fmt.Errorf("error while submitting login request: %w", err)
 	}
 
 	var login loginResponse
 	err = unmarshalBody(resp.Response, &login)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if login.TokenId == "" {
-		return fmt.Errorf("login response has no tokenId")
+		return "", fmt.Errorf("login response has no tokenId")
 	}
 
-	c.credential.token = login.TokenId
-
-	return nil
+	return login.TokenId, nil
 }
