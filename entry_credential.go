@@ -324,7 +324,7 @@ func (c *EntryCredentialService) GetEntries(vaultId string, opts GetEntriesOptio
 // GetEntriesWithContext returns the credential entries of a vault, without their secrets, with optional filters.
 // The provided context can be used to cancel the request.
 func (c *EntryCredentialService) GetEntriesWithContext(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
-	return c.client.getEntries(ctx, vaultId, EntryCredentialType, opts)
+	return c.client.getEntries(ctx, vaultId, EntryCredentialType, "", opts)
 }
 
 // GetByName retrieves a single credential entry, its secrets included, by name (ignoring case), subType, and
@@ -341,16 +341,9 @@ func (c *EntryCredentialService) GetByName(vaultId, name, subType string, opts G
 // Returns ErrMultipleEntriesFound if more than one match exists.
 // The provided context can be used to cancel the request.
 func (c *EntryCredentialService) GetByNameWithContext(ctx context.Context, vaultId, name, subType string, opts GetByNameOptions) (Entry, error) {
-	entries, err := c.GetEntriesWithContext(ctx, vaultId, GetEntriesOptions{Name: &name, Path: opts.Path})
+	matches, err := c.client.getEntries(ctx, vaultId, EntryCredentialType, subType, GetEntriesOptions{Name: &name, Path: opts.Path})
 	if err != nil {
 		return Entry{}, err
-	}
-
-	var matches []Entry
-	for _, e := range entries {
-		if e.SubType == subType {
-			matches = append(matches, e)
-		}
 	}
 
 	switch len(matches) {

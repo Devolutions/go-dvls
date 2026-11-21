@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 )
 
 type EntryCertificateService service
@@ -33,18 +34,26 @@ type EntryCertificate struct {
 	Tags            []string
 	Password        string
 
+	// Expiration is the certificate's expiration date; the zero time means none.
+	Expiration            time.Time
+	UseDefaultCredentials bool
+
 	// Can either be a URL or a file name.
 	CertificateIdentifier string
 
 	mode EntryCertificateDataMode
 }
 
+// entryCertificateData always sends expiresOn and useDefaultCredentials: a PUT keeps a property it omits, and a null
+// expiresOn clears it.
 type entryCertificateData struct {
-	DataMode    EntryCertificateDataMode `json:"dataMode"`
-	Url         string                   `json:"url,omitempty"`
-	FileName    string                   `json:"fileName,omitempty"`
-	FileContent string                   `json:"fileContent,omitempty"`
-	Password    string                   `json:"password,omitempty"`
+	DataMode              EntryCertificateDataMode `json:"dataMode"`
+	Url                   string                   `json:"url,omitempty"`
+	FileName              string                   `json:"fileName,omitempty"`
+	FileContent           string                   `json:"fileContent,omitempty"`
+	Password              string                   `json:"password,omitempty"`
+	ExpiresOn             *string                  `json:"expiresOn"`
+	UseDefaultCredentials bool                     `json:"useDefaultCredentials"`
 }
 
 func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
@@ -65,6 +74,15 @@ func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
 		identifier = data.FileName
 	}
 
+	var expiration time.Time
+	if data.ExpiresOn != nil && *data.ExpiresOn != "" {
+		var err error
+		expiration, err = time.Parse(time.RFC3339, *data.ExpiresOn)
+		if err != nil {
+			return EntryCertificate{}, fmt.Errorf("failed to parse certificate expiration: %w", err)
+		}
+	}
+
 	return EntryCertificate{
 		Id:                    raw.Id,
 		VaultId:               raw.VaultId,
@@ -73,13 +91,19 @@ func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
 		EntryFolderPath:       raw.Path,
 		Tags:                  raw.Tags,
 		Password:              data.Password,
+		Expiration:            expiration,
+		UseDefaultCredentials: data.UseDefaultCredentials,
 		CertificateIdentifier: identifier,
 		mode:                  data.DataMode,
 	}, nil
 }
 
 func (e EntryCertificate) data(mode EntryCertificateDataMode, content []byte) entryCertificateData {
-	data := entryCertificateData{DataMode: mode, Password: e.Password}
+	data := entryCertificateData{DataMode: mode, Password: e.Password, UseDefaultCredentials: e.UseDefaultCredentials}
+	if !e.Expiration.IsZero() {
+		expiresOn := e.Expiration.UTC().Format(time.RFC3339)
+		data.ExpiresOn = &expiresOn
+	}
 	if mode == EntryCertificateDataModeFile {
 		data.FileName = e.CertificateIdentifier
 	} else {
@@ -205,13 +229,13 @@ func (c *EntryCertificateService) newWithContext(ctx context.Context, entry Entr
 }
 
 // Update updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other field is
-// replaced; an empty Password keeps the stored one.
+// replaced (a zero Expiration clears it); an empty Password keeps the stored one.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
 	return c.UpdateWithContext(context.Background(), entry)
 }
 
 // UpdateWithContext updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other
-// field is replaced; an empty Password keeps the stored one.
+// field is replaced (a zero Expiration clears it); an empty Password keeps the stored one.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
 	oldEntry, err := c.GetWithContext(ctx, entry.VaultId, entry.Id)

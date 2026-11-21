@@ -5,24 +5,27 @@ import (
 	"encoding/json"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 const (
-	testCertificateUrlJSON  = `{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"cert","path":"F","type":"Document","subType":"Certificate","description":"desc","tags":["t"],"data":{"dataMode":"Url","url":"https://example.com/c.pfx","password":"pw"}}`
-	testCertificateFileJSON = `{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"cert","path":"","type":"Document","subType":"Certificate","description":"","tags":[],"data":{"dataMode":"File","fileName":"c.p12","password":"pw"}}`
+	testCertificateUrlJSON  = `{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"cert","path":"F","type":"Document","subType":"Certificate","description":"desc","tags":["t"],"data":{"dataMode":"Url","url":"https://example.com/c.pfx","password":"pw","expiresOn":"2099-01-01T05:00:00Z","useDefaultCredentials":true}}`
+	testCertificateFileJSON = `{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"cert","path":"","type":"Document","subType":"Certificate","description":"","tags":[],"data":{"dataMode":"File","fileName":"c.p12","password":"pw","expiresOn":null,"useDefaultCredentials":false}}`
 )
 
 func TestCertificateGet(t *testing.T) {
 	tests := []struct {
-		name           string
-		response       string
-		wantMode       EntryCertificateDataMode
-		wantIdentifier string
+		name               string
+		response           string
+		wantMode           EntryCertificateDataMode
+		wantIdentifier     string
+		wantExpiration     time.Time
+		wantDefaultCredUse bool
 	}{
-		{name: "Url", response: testCertificateUrlJSON, wantMode: EntryCertificateDataModeURL, wantIdentifier: "https://example.com/c.pfx"},
+		{name: "Url", response: testCertificateUrlJSON, wantMode: EntryCertificateDataModeURL, wantIdentifier: "https://example.com/c.pfx", wantExpiration: time.Date(2099, 1, 1, 5, 0, 0, 0, time.UTC), wantDefaultCredUse: true},
 		{name: "File", response: testCertificateFileJSON, wantMode: EntryCertificateDataModeFile, wantIdentifier: "c.p12"},
 	}
 
@@ -43,6 +46,8 @@ func TestCertificateGet(t *testing.T) {
 			assert.Equal(t, tt.wantIdentifier, cert.CertificateIdentifier)
 			assert.Equal(t, "pw", cert.Password)
 			assert.Equal(t, testVaultID, cert.VaultId)
+			assert.True(t, tt.wantExpiration.Equal(cert.Expiration), "expiration %v", cert.Expiration)
+			assert.Equal(t, tt.wantDefaultCredUse, cert.UseDefaultCredentials)
 		})
 	}
 }
@@ -102,7 +107,7 @@ func TestCertificateNew(t *testing.T) {
 		{
 			name:     "Url",
 			create:   func(c *Client, e EntryCertificate) (EntryCertificate, error) { return c.Entries.Certificate.NewURL(e) },
-			wantData: map[string]any{"dataMode": "Url", "url": "https://example.com/c.pfx", "password": "pw"},
+			wantData: map[string]any{"dataMode": "Url", "url": "https://example.com/c.pfx", "password": "pw", "expiresOn": "2099-01-01T05:00:00Z", "useDefaultCredentials": true},
 			response: testCertificateUrlJSON,
 		},
 		{
@@ -111,7 +116,7 @@ func TestCertificateNew(t *testing.T) {
 				e.CertificateIdentifier = "c.p12"
 				return c.Entries.Certificate.NewFile(e, []byte("certificate-bytes"))
 			},
-			wantData: map[string]any{"dataMode": "File", "fileName": "c.p12", "fileContent": base64.StdEncoding.EncodeToString([]byte("certificate-bytes")), "password": "pw"},
+			wantData: map[string]any{"dataMode": "File", "fileName": "c.p12", "fileContent": base64.StdEncoding.EncodeToString([]byte("certificate-bytes")), "password": "pw", "expiresOn": "2099-01-01T05:00:00Z", "useDefaultCredentials": true},
 			response: testCertificateFileJSON,
 		},
 	}
@@ -135,7 +140,8 @@ func TestCertificateNew(t *testing.T) {
 
 			client := newTestClient(t, mux)
 
-			cert, err := tt.create(client, EntryCertificate{VaultId: testVaultID, Name: "cert", EntryFolderPath: "F", Password: "pw", CertificateIdentifier: "https://example.com/c.pfx"})
+			expiration := time.Date(2099, 1, 1, 0, 0, 0, 0, time.FixedZone("EST", -5*3600))
+			cert, err := tt.create(client, EntryCertificate{VaultId: testVaultID, Name: "cert", EntryFolderPath: "F", Password: "pw", Expiration: expiration, UseDefaultCredentials: true, CertificateIdentifier: "https://example.com/c.pfx"})
 			require.NoError(t, err)
 			assert.Equal(t, testEntryID, cert.Id)
 			assert.Equal(t, "pw", cert.Password)
@@ -153,7 +159,7 @@ func TestCertificateUpdate_KeepsDataMode(t *testing.T) {
 		case http.MethodPut:
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-			assert.Equal(t, map[string]any{"dataMode": "File", "fileName": "renamed.p12"}, body["data"], "no file content and an empty password keep the stored ones")
+			assert.Equal(t, map[string]any{"dataMode": "File", "fileName": "renamed.p12", "expiresOn": nil, "useDefaultCredentials": false}, body["data"], "no file content and an empty password keep the stored ones; a zero expiration clears it")
 			assert.Equal(t, []any{}, body["tags"])
 			w.Write([]byte(testCertificateFileJSON))
 		default:

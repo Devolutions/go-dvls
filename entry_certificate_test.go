@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,11 +21,13 @@ func Test_EntryCertificate(t *testing.T) {
 		Description: "Test certificate",
 		Password:    "TestK8sCertificatePassword",
 		Tags:        []string{"test", "k8s"},
+		Expiration:  time.Date(2099, 1, 1, 0, 0, 0, 0, time.FixedZone("EST", -5*3600)),
 	}
 
 	t.Run("URL", func(t *testing.T) {
 		urlEntry := entry
 		urlEntry.CertificateIdentifier = "https://devolutions.net/"
+		urlEntry.UseDefaultCredentials = true
 
 		created, err := testClient.Entries.Certificate.NewURL(urlEntry)
 		require.NoError(t, err)
@@ -37,6 +40,8 @@ func Test_EntryCertificate(t *testing.T) {
 		assert.Equal(t, urlEntry.CertificateIdentifier, fetched.CertificateIdentifier)
 		assert.Equal(t, urlEntry.Password, fetched.Password)
 		assert.ElementsMatch(t, urlEntry.Tags, fetched.Tags)
+		assert.True(t, urlEntry.Expiration.Equal(fetched.Expiration), "expiration %v", fetched.Expiration)
+		assert.True(t, fetched.UseDefaultCredentials)
 
 		withoutPassword := fetched
 		withoutPassword.Password = ""
@@ -46,6 +51,8 @@ func Test_EntryCertificate(t *testing.T) {
 
 		fetched.Name = "TestK8sUpdatedEntry"
 		fetched.CertificateIdentifier = "https://devolutions.net/updated"
+		fetched.Expiration = time.Time{}
+		fetched.UseDefaultCredentials = false
 		_, err = testClient.Entries.Certificate.Update(fetched)
 		require.NoError(t, err)
 
@@ -54,6 +61,8 @@ func Test_EntryCertificate(t *testing.T) {
 		assert.Equal(t, "TestK8sUpdatedEntry", updated.Name)
 		assert.Equal(t, "https://devolutions.net/updated", updated.CertificateIdentifier)
 		assert.Equal(t, EntryCertificateDataModeURL, updated.GetDataMode())
+		assert.True(t, updated.Expiration.IsZero(), "a zero expiration clears it, got %v", updated.Expiration)
+		assert.False(t, updated.UseDefaultCredentials)
 	})
 
 	t.Run("File", func(t *testing.T) {

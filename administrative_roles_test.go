@@ -70,6 +70,14 @@ func Test_AdministrativeRoleAssignments(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, created, fetched)
 
+	_, err = testClient.AdministrativeRoleAssignments.New(AdministrativeRoleAssignmentRequest{
+		RoleId:     BuiltinRoleVaultUserId,
+		AssigneeId: assigneeId,
+		ScopeType:  AdministrativeRoleScopeVault,
+		ScopeId:    vault.Id,
+	})
+	assert.ErrorIs(t, err, ErrAdministrativeRoleAssignmentAlreadyExists)
+
 	assignments, err := testClient.AdministrativeRoleAssignments.List(AdministrativeRoleAssignmentFilter{
 		RoleId:    BuiltinRoleVaultUserId,
 		ScopeType: AdministrativeRoleScopeVault,

@@ -11,6 +11,8 @@ type AdministrativeRoleAssignments service
 
 const administrativeRoleAssignmentsEndpoint string = "role-assignment"
 
+var ErrAdministrativeRoleAssignmentAlreadyExists = fmt.Errorf("administrative role assignment already exists")
+
 // AdministrativeRoleAssignment represents a role granted to one assignee at one scope. ScopeId is empty for the
 // Workspace scope.
 type AdministrativeRoleAssignment struct {
@@ -44,14 +46,16 @@ type AdministrativeRoleAssignmentFilter struct {
 	ScopeId    string
 }
 
-// New creates a permanent role assignment and returns it. Creating an assignment that already exists fails with
-// an HTTP 422.
+// New creates a permanent role assignment and returns it.
+// Returns ErrAdministrativeRoleAssignmentAlreadyExists if the same role is already assigned to the assignee at the
+// scope.
 func (c *AdministrativeRoleAssignments) New(request AdministrativeRoleAssignmentRequest) (AdministrativeRoleAssignment, error) {
 	return c.NewWithContext(context.Background(), request)
 }
 
-// NewWithContext creates a permanent role assignment and returns it. Creating an assignment that already exists
-// fails with an HTTP 422.
+// NewWithContext creates a permanent role assignment and returns it.
+// Returns ErrAdministrativeRoleAssignmentAlreadyExists if the same role is already assigned to the assignee at the
+// scope.
 // The provided context can be used to cancel the request.
 func (c *AdministrativeRoleAssignments) NewWithContext(ctx context.Context, request AdministrativeRoleAssignmentRequest) (AdministrativeRoleAssignment, error) {
 	reqUrl, err := c.client.v2Url(nil, administrativeRoleAssignmentsEndpoint)
@@ -62,6 +66,10 @@ func (c *AdministrativeRoleAssignments) NewWithContext(ctx context.Context, requ
 	var assignment AdministrativeRoleAssignment
 	err = c.client.sendJSON(ctx, http.MethodPost, reqUrl, request, &assignment)
 	if err != nil {
+		if hasStatusCode(err, http.StatusConflict) {
+			return AdministrativeRoleAssignment{}, fmt.Errorf("%w: %w", ErrAdministrativeRoleAssignmentAlreadyExists, err)
+		}
+
 		return AdministrativeRoleAssignment{}, fmt.Errorf("error while creating role assignment: %w", err)
 	}
 

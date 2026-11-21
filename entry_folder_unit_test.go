@@ -34,9 +34,9 @@ func TestFolderGetByName(t *testing.T) {
 		data      string
 		wantError error
 	}{
-		{name: "Found", data: `{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`},
+		{name: "Found", data: `{"id":"` + testEntryID + `","name":"F","path":"A","type":"Folder","subType":"Folder","data":{}}`},
 		{name: "NotFound", data: "", wantError: ErrEntryNotFound},
-		{name: "Multiple", data: `{"id":"1","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}},{"id":"2","name":"F","path":"A\\F\\F","type":"Folder","subType":"Folder","data":{}}`, wantError: ErrMultipleEntriesFound},
+		{name: "Multiple", data: `{"id":"1","name":"F","path":"A","type":"Folder","subType":"Folder","data":{}},{"id":"2","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`, wantError: ErrMultipleEntriesFound},
 	}
 
 	for _, tt := range tests {
@@ -45,19 +45,19 @@ func TestFolderGetByName(t *testing.T) {
 			mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodGet, r.Method)
 				assert.Equal(t, "F", r.URL.Query().Get("name"))
-				assert.Equal(t, "A\\F", r.URL.Query().Get("path"))
+				assert.Equal(t, "A", r.URL.Query().Get("path"))
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":2,"totalPage":1,"data":[` + tt.data + `]}`))
 			})
 			mux.HandleFunc(testEntryPath, func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodGet, r.Method)
 				w.Header().Set("Content-Type", "application/json")
-				w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`))
+				w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A","type":"Folder","subType":"Folder","data":{}}`))
 			})
 
 			client := newTestClient(t, mux)
 
-			path := "A\\F"
+			path := "A"
 			folder, err := client.Entries.Folder.GetByName(testVaultID, "F", GetByNameOptions{Path: &path})
 			if tt.wantError != nil {
 				assert.ErrorIs(t, err, tt.wantError)
@@ -86,11 +86,11 @@ func TestFolderNewAndUpdate(t *testing.T) {
 		case http.MethodPut:
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-			assert.Equal(t, "A\\F", body["path"])
+			assert.Equal(t, "A", body["path"])
 			assert.Equal(t, map[string]any{"domain": "", "username": ""}, body["data"])
 			w.Write([]byte(`{}`))
 		case http.MethodGet:
-			w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`))
+			w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A","type":"Folder","subType":"Folder","data":{}}`))
 		case http.MethodDelete:
 			w.WriteHeader(http.StatusNoContent)
 		default:
@@ -103,9 +103,9 @@ func TestFolderNewAndUpdate(t *testing.T) {
 	id, err := client.Entries.Folder.New(Entry{VaultId: testVaultID, Name: "F", Path: "A", Type: EntryFolderType, SubType: EntryFolderSubTypeFolder})
 	require.NoError(t, err)
 
-	folder, err := client.Entries.Folder.Update(Entry{Id: id, VaultId: testVaultID, Name: "F", Path: "A\\F", Type: EntryFolderType, SubType: EntryFolderSubTypeFolder, Data: &EntryFolderData{}})
+	folder, err := client.Entries.Folder.Update(Entry{Id: id, VaultId: testVaultID, Name: "F", Path: "A", Type: EntryFolderType, SubType: EntryFolderSubTypeFolder, Data: &EntryFolderData{}})
 	require.NoError(t, err)
-	assert.Equal(t, "A\\F", folder.Path)
+	assert.Equal(t, "A", folder.Path)
 
 	require.NoError(t, client.Entries.Folder.DeleteById(testVaultID, id))
 }

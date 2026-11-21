@@ -61,14 +61,14 @@ func (c *EntryFolderService) GetWithContext(ctx context.Context, entry Entry) (E
 	return c.GetByIdWithContext(ctx, entry.VaultId, entry.Id)
 }
 
-// GetById returns a single EntryFolder based on vault Id and entry Id. The Path of a folder is its own full path
-// (parent folders and name separated by a backslash).
+// GetById returns a single EntryFolder based on vault Id and entry Id. The Path of a folder is its parent folder's
+// path, empty at the root of the vault.
 func (c *EntryFolderService) GetById(vaultId string, entryId string) (Entry, error) {
 	return c.GetByIdWithContext(context.Background(), vaultId, entryId)
 }
 
-// GetByIdWithContext returns a single EntryFolder based on vault Id and entry Id. The Path of a folder is its own
-// full path (parent folders and name separated by a backslash).
+// GetByIdWithContext returns a single EntryFolder based on vault Id and entry Id. The Path of a folder is its parent
+// folder's path, empty at the root of the vault.
 // The provided context can be used to cancel the request.
 func (c *EntryFolderService) GetByIdWithContext(ctx context.Context, vaultId string, entryId string) (Entry, error) {
 	return c.client.getEntry(ctx, vaultId, entryId)
@@ -91,14 +91,14 @@ func (c *EntryFolderService) NewWithContext(ctx context.Context, entry Entry) (s
 	return c.client.newEntry(ctx, entry)
 }
 
-// Update updates an EntryFolder and returns the updated entry. Unlike New, Path is the folder's own full path, as
-// GetById returns it: a parent path moves the folder.
+// Update updates an EntryFolder and returns the updated entry. Path is the parent folder's path: another path moves
+// the folder with its content, and Name renames it.
 func (c *EntryFolderService) Update(entry Entry) (Entry, error) {
 	return c.UpdateWithContext(context.Background(), entry)
 }
 
-// UpdateWithContext updates an EntryFolder and returns the updated entry. Unlike New, Path is the folder's own full
-// path, as GetById returns it: a parent path moves the folder.
+// UpdateWithContext updates an EntryFolder and returns the updated entry. Path is the parent folder's path: another
+// path moves the folder with its content, and Name renames it.
 // The provided context can be used to cancel the request.
 func (c *EntryFolderService) UpdateWithContext(ctx context.Context, entry Entry) (Entry, error) {
 	if err := c.validateEntry(&entry); err != nil {
@@ -166,5 +166,5 @@ func (c *EntryFolderService) GetEntries(vaultId string, opts GetEntriesOptions) 
 // GetEntriesWithContext returns the folder entries of a vault with optional filters.
 // The provided context can be used to cancel the request.
 func (c *EntryFolderService) GetEntriesWithContext(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
-	return c.client.getEntries(ctx, vaultId, EntryFolderType, opts)
+	return c.client.getEntries(ctx, vaultId, EntryFolderType, "", opts)
 }

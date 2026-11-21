@@ -17,6 +17,7 @@ func TestCredentialGetEntries_Filters(t *testing.T) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		query := r.URL.Query()
 		assert.Equal(t, "Credential", query.Get("type"))
+		assert.False(t, query.Has("subType"))
 		assert.Equal(t, "cred", query.Get("name"))
 		assert.Equal(t, "A", query.Get("path"))
 
@@ -44,11 +45,11 @@ func TestCredentialGetEntries_RootPathFilter(t *testing.T) {
 	mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodGet, r.Method)
 		assert.False(t, r.URL.Query().Has("path"))
+		assert.Equal(t, "true", r.URL.Query().Get("exactPath"))
 
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":2,"totalPage":1,"data":[
-			{"id":"1","name":"root","path":"","type":"Credential","subType":"Default","data":{}},
-			{"id":"2","name":"nested","path":"A","type":"Credential","subType":"Default","data":{}}
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[
+			{"id":"1","name":"root","path":"","type":"Credential","subType":"Default","data":{}}
 		]}`))
 	})
 
@@ -177,8 +178,8 @@ func TestCredentialGetByName(t *testing.T) {
 		data      string
 		wantError error
 	}{
-		{name: "Found", data: `{"id":"` + testEntryID + `","name":"cred","type":"Credential","subType":"Default","data":{}},{"id":"2","name":"cred","type":"Credential","subType":"AccessCode","data":{}}`},
-		{name: "NotFound", data: `{"id":"2","name":"cred","type":"Credential","subType":"AccessCode","data":{}}`, wantError: ErrEntryNotFound},
+		{name: "Found", data: `{"id":"` + testEntryID + `","name":"cred","type":"Credential","subType":"Default","data":{}}`},
+		{name: "NotFound", data: "", wantError: ErrEntryNotFound},
 		{name: "Multiple", data: `{"id":"1","name":"cred","type":"Credential","subType":"Default","data":{}},{"id":"2","name":"cred","type":"Credential","subType":"Default","data":{}}`, wantError: ErrMultipleEntriesFound},
 	}
 
@@ -188,6 +189,8 @@ func TestCredentialGetByName(t *testing.T) {
 			mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, http.MethodGet, r.Method)
 				assert.Equal(t, "cred", r.URL.Query().Get("name"))
+				assert.Equal(t, "Credential", r.URL.Query().Get("type"))
+				assert.Equal(t, "Default", r.URL.Query().Get("subType"))
 				w.Header().Set("Content-Type", "application/json")
 				w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":2,"totalPage":1,"data":[` + tt.data + `]}`))
 			})

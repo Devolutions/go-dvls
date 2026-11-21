@@ -131,14 +131,13 @@ func TestRoleAssignmentsNew_Duplicate(t *testing.T) {
 	mux.HandleFunc("/api/v2/role-assignment", func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusUnprocessableEntity)
+		w.WriteHeader(http.StatusConflict)
 		w.Write([]byte(`{"message":"The role assignment already exists."}`))
 	})
 
 	client := newTestClient(t, mux)
 
 	_, err := client.AdministrativeRoleAssignments.New(AdministrativeRoleAssignmentRequest{RoleId: testRoleID, AssigneeId: testAssigneeID, ScopeType: AdministrativeRoleScopeWorkspace})
-	require.Error(t, err)
-	assert.True(t, hasStatusCode(err, http.StatusUnprocessableEntity))
-	assert.ErrorContains(t, err, "already exists")
+	assert.ErrorIs(t, err, ErrAdministrativeRoleAssignmentAlreadyExists)
+	assert.True(t, hasStatusCode(err, http.StatusConflict), "the RequestError stays in the chain")
 }

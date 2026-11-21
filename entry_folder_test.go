@@ -223,7 +223,7 @@ func Test_GetFolderByName(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, id, got.Id)
 	assert.Equal(t, "MyFolder", got.Name)
-	assert.Equal(t, testPath+`\MyFolder`, got.Path)
+	assert.Equal(t, testPath, got.Path)
 
 	// GetByName with non-existent name returns ErrEntryNotFound
 	_, err = testClient.Entries.Folder.GetByName(vault.Id, "NonExistentFolder", GetByNameOptions{Path: &testPath})
@@ -234,7 +234,7 @@ func Test_GetFolderByName(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, id, got.Id)
 
-	// Root-level folder: path returned by API is the folder name itself
+	// Root-level folder: its path is the root of the vault
 	rootEntry := Entry{
 		VaultId: vault.Id,
 		Name:    "MyRootFolder",
@@ -249,10 +249,19 @@ func Test_GetFolderByName(t *testing.T) {
 		_ = testClient.Entries.Folder.DeleteById(vault.Id, rootId)
 	})
 
-	root, err := testClient.Entries.Folder.GetByName(vault.Id, "MyRootFolder", GetByNameOptions{})
+	rootPath := ""
+	root, err := testClient.Entries.Folder.GetByName(vault.Id, "MyRootFolder", GetByNameOptions{Path: &rootPath})
 	require.NoError(t, err)
 	assert.Equal(t, rootId, root.Id)
-	assert.Equal(t, "MyRootFolder", root.Path)
+	assert.Equal(t, "", root.Path)
+
+	// Moving the root folder under testPath and renaming it
+	root.Path = testPath
+	root.Name = "MovedFolder"
+	moved, err := testClient.Entries.Folder.Update(root)
+	require.NoError(t, err)
+	assert.Equal(t, testPath, moved.Path)
+	assert.Equal(t, "MovedFolder", moved.Name)
 }
 
 func Test_GetFolderEntries_Filters(t *testing.T) {

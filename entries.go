@@ -157,7 +157,8 @@ type GetByNameOptions struct {
 
 // GetEntriesOptions contains optional filters for listing entries.
 // A nil value means the filter is not applied. Name matches ignoring case. Path returns the entries of that folder
-// and of its sub-folders; an empty Path returns the entries at the root of the vault.
+// and of its sub-folders (a folder is listed under its parent, not under itself); an empty Path returns the entries
+// at the root of the vault.
 type GetEntriesOptions struct {
 	Name *string
 	Path *string
@@ -172,20 +173,28 @@ func entryUrl(c *Client, query url.Values, vaultId string, entryId ...string) (s
 	return reqUrl, nil
 }
 
-// getEntries returns the entries of a vault of the given type with optional filters.
+// getEntries returns the entries of a vault of the given type, and of the given subtype unless subType is empty,
+// with optional filters.
 // Entries with unsupported types are skipped.
 // This function handles pagination automatically and returns all entries across all pages.
-func (c *Client) getEntries(ctx context.Context, vaultId string, entryType string, opts GetEntriesOptions) ([]Entry, error) {
+func (c *Client) getEntries(ctx context.Context, vaultId string, entryType string, subType string, opts GetEntriesOptions) ([]Entry, error) {
 	if vaultId == "" {
 		return nil, fmt.Errorf("vaultId is required")
 	}
 
 	query := url.Values{"type": {entryType}}
+	if subType != "" {
+		query.Set("subType", subType)
+	}
 	if opts.Name != nil {
 		query.Set("name", *opts.Name)
 	}
-	if opts.Path != nil && *opts.Path != "" {
-		query.Set("path", *opts.Path)
+	if opts.Path != nil {
+		if *opts.Path == "" {
+			query.Set("exactPath", "true")
+		} else {
+			query.Set("path", *opts.Path)
+		}
 	}
 
 	raws, err := listAll[json.RawMessage](ctx, c, query, vaultEndpoint, vaultId, entryEndpoint)
@@ -201,11 +210,6 @@ func (c *Client) getEntries(ctx context.Context, vaultId string, entryType strin
 				continue
 			}
 			return nil, fmt.Errorf("failed to unmarshal entry: %w", err)
-		}
-
-		// The server ignores an empty path, even with exactPath=true, so the root of the vault is filtered here.
-		if opts.Path != nil && *opts.Path == "" && entry.Path != "" {
-			continue
 		}
 
 		entry.VaultId = vaultId

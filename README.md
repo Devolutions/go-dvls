@@ -47,13 +47,15 @@ Breaking changes:
   `AdministrativeRoleAssignment` is one assignment (`Id`, `RoleId`, `AssigneeId`, `AssigneeType`, `ScopeType`,
   `ScopeId`, names); `AdministrativeRoleAssignmentRequest` and the `AdministrativeRoleAssignmentFilter` fields
   (`RoleId`, `AssigneeId`, `ScopeType`, `ScopeId`) replace `AdministrativeRoleMemberRequest`,
-  `AdministrativeRoleMember` and the old filter. Creating an existing assignment answers 422.
+  `AdministrativeRoleMember` and the old filter. Creating an existing assignment returns
+  `ErrAdministrativeRoleAssignmentAlreadyExists`; a `List` filter naming a role, assignee or scope that does not
+  exist fails with an HTTP 400 (`GetMembers` returned an empty list).
 - `AdministrativeRole`: `AssignableScopes` replaces `SupportedScopes`; `RequiredPermissionOnScope`, `IsAssignable`,
   `IsPam`, `IsPrivileged` and `IsUsed` are removed.
 - `User`: `IdentityProvider` replaces `AuthenticationType` and `IsWorkspaceOwner` replaces `IsAdministrator`;
   `UserGroups` is removed. `Users.ListApplications` and `GetApplicationByName` return `ApplicationIdentity`.
   `UserGroup`: `IsWorkspaceOwner` replaces `IsAdministrator`, `IsEnabled` is added.
-- `EntryCertificate`: `Expiration` and `UseDefaultCredentials` are removed (v2 does not carry them).
+- `EntryCertificate.Expiration` is returned in UTC and an update with a zero `Expiration` clears it.
   `EntryHost` and `EntryWebsite` lose `ConnectionType`; `EntryWebsite.ConnectionSubType` is the browser and
   `WebBrowserApplication` is removed.
 - `GetServerInfo` (version only) replaces `GetPublicServerInfo` and `GetPrivateServerInfo`; `GetServerTimezones` is
@@ -61,7 +63,8 @@ Breaking changes:
 - Behaviour: name lookups (`GetByName`, `GetEntriesOptions.Name`) match ignoring case. A vault created with
   `VaultContentTypeDefault` keeps `Default`. Entry tags come back sorted. On an update, the non-secret data fields
   are always sent, so an empty one is cleared, while an empty secret keeps the stored one. A folder's `Path` is its
-  parent on `Folder.New` but its own full path on `Folder.GetById` and `Folder.Update`.
+  parent folder everywhere (it used to read as its own full path): `GetEntriesOptions.Path` lists a folder under its
+  parent, not under itself, and an update sending the folder's own full path is refused.
 
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
