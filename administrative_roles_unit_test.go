@@ -8,125 +8,85 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const testRoleJSON = `{"id":"` + testRoleID + `","name":"Vault member","description":"d","isBuiltIn":true,"assignableScopes":["Workspace","Vault","BusinessUnit"],"permissions":["VaultsContentView"]}`
+
 func TestAdministrativeRolesList(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
+	mux.HandleFunc("/api/v2/role", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"` + BuiltinRoleVaultUserId + `","name":"Vault User","description":"Has access to the content of the vault","isBuiltIn":true,"permissions":[332],"supportedScopes":[0,2]},
-			{"id":"` + testRoleID + `","name":"Custom Role","description":"","permissions":[100,101],"supportedScopes":[0],"isUsed":true}
-		]}`))
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[` + testRoleJSON + `]}`))
 	})
 
 	client := newTestClient(t, mux)
 
 	roles, err := client.AdministrativeRoles.List()
 	require.NoError(t, err)
-	require.Len(t, roles, 2)
-	assert.Equal(t, BuiltinRoleVaultUserId, roles[0].Id)
-	assert.True(t, roles[0].IsBuiltIn)
-	assert.Equal(t, []AdministrativePermission{AdministrativePermissionRepositoriesContentView}, roles[0].Permissions)
-	assert.Equal(t, []AdministrativeRoleScopeType{AdministrativeRoleScopeGlobal, AdministrativeRoleScopeVault}, roles[0].SupportedScopes)
-	assert.Equal(t, []AdministrativePermission{AdministrativePermissionUsersView, AdministrativePermissionUsersAdd}, roles[1].Permissions)
-	assert.True(t, roles[1].IsUsed)
+	require.Len(t, roles, 1)
+	assert.Equal(t, AdministrativeRole{
+		Id:               testRoleID,
+		Name:             "Vault member",
+		Description:      "d",
+		IsBuiltIn:        true,
+		AssignableScopes: []AdministrativeRoleScopeType{AdministrativeRoleScopeWorkspace, AdministrativeRoleScopeVault, AdministrativeRoleScopeBusinessUnit},
+		Permissions:      []AdministrativePermission{"VaultsContentView"},
+	}, roles[0])
 }
 
 func TestAdministrativeRolesGet(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles/"+testRoleID, func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
+	mux.HandleFunc("/api/v2/role/"+testRoleID, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":{"id":"` + testRoleID + `","name":"Custom Role","description":"desc","permissions":[332],"supportedScopes":[2],"requiredPermissionOnScope":332}}`))
+		w.Write([]byte(testRoleJSON))
+	})
+	mux.HandleFunc("/api/v2/role/missing", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte(`{"message":"The requested resource was not found."}`))
 	})
 
 	client := newTestClient(t, mux)
 
 	role, err := client.AdministrativeRoles.Get(testRoleID)
 	require.NoError(t, err)
-	assert.Equal(t, "Custom Role", role.Name)
-	require.NotNil(t, role.RequiredPermissionOnScope)
-	assert.Equal(t, AdministrativePermissionRepositoriesContentView, *role.RequiredPermissionOnScope)
-}
+	assert.Equal(t, "Vault member", role.Name)
 
-func TestAdministrativeRolesGet_NotFoundStatusCode(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles/"+testRoleID, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusNotFound)
-	})
-
-	client := newTestClient(t, mux)
-
-	_, err := client.AdministrativeRoles.Get(testRoleID)
-	assert.ErrorIs(t, err, ErrAdministrativeRoleNotFound)
-}
-
-func TestAdministrativeRolesGet_NotFoundResult(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles/"+testRoleID, func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":6}`))
-	})
-
-	client := newTestClient(t, mux)
-
-	_, err := client.AdministrativeRoles.Get(testRoleID)
+	_, err = client.AdministrativeRoles.Get("missing")
 	assert.ErrorIs(t, err, ErrAdministrativeRoleNotFound)
 }
 
 func TestAdministrativeRolesGetByName(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"role-1","name":"Alpha","description":"","permissions":[],"supportedScopes":[0]},
-			{"id":"role-2","name":"Beta","description":"","permissions":[],"supportedScopes":[0]}
-		]}`))
-	})
+	tests := []struct {
+		name      string
+		data      string
+		wantError error
+	}{
+		{name: "Found", data: testRoleJSON},
+		{name: "NotFound", data: "", wantError: ErrAdministrativeRoleNotFound},
+		{name: "Multiple", data: testRoleJSON + "," + testRoleJSON, wantError: ErrMultipleAdministrativeRolesFound},
+	}
 
-	client := newTestClient(t, mux)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/v2/role", func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "Vault member", r.URL.Query().Get("name"))
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":2,"totalPage":1,"data":[` + tt.data + `]}`))
+			})
 
-	role, err := client.AdministrativeRoles.GetByName("Beta")
-	require.NoError(t, err)
-	assert.Equal(t, "role-2", role.Id)
-}
+			client := newTestClient(t, mux)
 
-func TestAdministrativeRolesGetByName_NotFound(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[]}`))
-	})
-
-	client := newTestClient(t, mux)
-
-	_, err := client.AdministrativeRoles.GetByName("NonExistent")
-	assert.ErrorIs(t, err, ErrAdministrativeRoleNotFound)
-}
-
-func TestAdministrativeRolesGetByName_Multiple(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v3/administrative-roles", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"role-1","name":"Dup","description":"","permissions":[],"supportedScopes":[0]},
-			{"id":"role-2","name":"Dup","description":"","permissions":[],"supportedScopes":[0]}
-		]}`))
-	})
-
-	client := newTestClient(t, mux)
-
-	_, err := client.AdministrativeRoles.GetByName("Dup")
-	assert.ErrorIs(t, err, ErrMultipleAdministrativeRolesFound)
-}
-
-func TestAdministrativeEnumValues(t *testing.T) {
-	assert.EqualValues(t, 2, AdministrativeRoleScopeVault)
-	assert.EqualValues(t, 332, AdministrativePermissionRepositoriesContentView)
-	assert.EqualValues(t, 205, AdministrativePermissionAdministrativeRolesAssignmentsManage)
+			role, err := client.AdministrativeRoles.GetByName("Vault member")
+			if tt.wantError != nil {
+				assert.ErrorIs(t, err, tt.wantError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, testRoleID, role.Id)
+		})
+	}
 }

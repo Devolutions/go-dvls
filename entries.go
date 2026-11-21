@@ -7,16 +7,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
-const (
-	entryEndpoint            string = "/api/connections/partial"
-	entryConnectionsEndpoint string = "/api/connections"
-	entryBasePublicEndpoint  string = "/api/v1/vault/{vaultId}/entry"
-	entryPublicEndpoint      string = "/api/v1/vault/{vaultId}/entry/{id}"
-)
+const entryEndpoint string = "entry"
 
 // ErrUnsupportedEntryType is returned when an entry type/subtype is not supported by this client.
 type ErrUnsupportedEntryType struct {
@@ -33,6 +27,23 @@ func IsUnsupportedEntryType(err error) bool {
 	var unsupportedErr ErrUnsupportedEntryType
 	return errors.As(err, &unsupportedErr)
 }
+
+// EntryCredentialMode is where a host or website entry takes its credentials from. The API returns the username and
+// password stored on the entry, never the resolved ones: for any mode other than EntryCredentialModeCustom they are
+// not the credentials the entry uses. A Linked entry uses the credential entry CredentialEntryId, an Inherited entry
+// the credentials of its parent folder.
+type EntryCredentialMode string
+
+const (
+	EntryCredentialModeCustom    EntryCredentialMode = "Custom"
+	EntryCredentialModeInherited EntryCredentialMode = "Inherited"
+	EntryCredentialModeLinked    EntryCredentialMode = "Linked"
+	EntryCredentialModeMyDefault EntryCredentialMode = "MyDefault"
+	EntryCredentialModeNone      EntryCredentialMode = "None"
+	EntryCredentialModeUserVault EntryCredentialMode = "UserVault"
+	// EntryCredentialModeOther is a mode the API reads but does not set, such as a privileged account.
+	EntryCredentialModeOther EntryCredentialMode = "Other"
+)
 
 type Entries struct {
 	Certificate *EntryCertificateService
@@ -155,108 +166,257 @@ func (e Entry) MarshalJSON() ([]byte, error) {
 	})
 }
 
-func entryPublicEndpointReplacer(vaultId string, entryId string) string {
-	replacer := strings.NewReplacer("{vaultId}", vaultId, "{id}", entryId)
-	return replacer.Replace(entryPublicEndpoint)
-}
-
-func entryPublicBaseEndpointReplacer(vaultId string) string {
-	replacer := strings.NewReplacer("{vaultId}", vaultId)
-	return replacer.Replace(entryBasePublicEndpoint)
-}
-
-// entryListRawResponse represents the raw paginated response from the entry list endpoint.
-type entryListRawResponse struct {
-	Data []json.RawMessage `json:"data"`
-	pagedResponse
-}
-
 // GetByNameOptions contains optional filters for GetByName.
 // A nil field means the filter is not applied.
 type GetByNameOptions struct {
 	Path *string
 }
 
-// getEntriesOptions contains optional filters for listing entries.
-// A nil value means the filter is not applied.
+// GetEntriesOptions contains optional filters for listing entries.
+// A nil value means the filter is not applied. Name matches ignoring case. Path returns the entries of that folder
+// and of its sub-folders (a folder is listed under its parent, not under itself); an empty Path returns the entries
+// at the root of the vault.
 type GetEntriesOptions struct {
 	Name *string
 	Path *string
 }
 
-// getEntries returns a list of entries from a vault with optional filters.
+func entryUrl(c *Client, query url.Values, vaultId string, entryId ...string) (string, error) {
+	reqUrl, err := c.v2Url(query, append([]string{vaultEndpoint, vaultId, entryEndpoint}, entryId...)...)
+	if err != nil {
+		return "", fmt.Errorf("failed to build entry url: %w", err)
+	}
+
+	return reqUrl, nil
+}
+
+// getEntries returns the entries of a vault of the given type, and of the given subtype unless subType is empty,
+// with optional filters.
 // Entries with unsupported types are skipped.
 // This function handles pagination automatically and returns all entries across all pages.
-func (c *Client) getEntries(ctx context.Context, vaultId string, opts GetEntriesOptions) ([]Entry, error) {
+func (c *Client) getEntries(ctx context.Context, vaultId string, entryType string, subType string, opts GetEntriesOptions) ([]Entry, error) {
 	if vaultId == "" {
 		return nil, fmt.Errorf("vaultId is required")
 	}
 
-	baseEndpoint := entryPublicBaseEndpointReplacer(vaultId)
-	reqUrl, err := url.JoinPath(c.baseUri, baseEndpoint)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build entry url: %w", err)
+	query := url.Values{"type": {entryType}}
+	if subType != "" {
+		query.Set("subType", subType)
 	}
-
-	parsedUrl, err := url.Parse(reqUrl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse entry url: %w", err)
-	}
-
-	baseQuery := parsedUrl.Query()
 	if opts.Name != nil {
-		baseQuery.Set("name", *opts.Name)
+		query.Set("name", *opts.Name)
 	}
-	if opts.Path != nil && *opts.Path != "" {
-		baseQuery.Set("path", *opts.Path)
-	}
-	baseQuery.Set("pageSize", strconv.Itoa(listPageSize))
-
-	var allEntries []Entry
-	err = fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
-		baseQuery.Set("pageNumber", strconv.Itoa(pageNumber))
-		parsedUrl.RawQuery = baseQuery.Encode()
-
-		resp, err := c.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
-		if err != nil {
-			return pagedResponse{}, 0, fmt.Errorf("error while fetching entries (page %d): %w", pageNumber, err)
-		}
-
-		var rawResp entryListRawResponse
-		if err := json.Unmarshal(resp.Response, &rawResp); err != nil {
-			return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal entry list response (page %d): %w", pageNumber, err)
-		}
-
-		for _, raw := range rawResp.Data {
-			var entry Entry
-			if err := json.Unmarshal(raw, &entry); err != nil {
-				if IsUnsupportedEntryType(err) {
-					continue
-				}
-				return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal entry (page %d): %w", pageNumber, err)
-			}
-			entry.VaultId = vaultId
-			allEntries = append(allEntries, entry)
-		}
-
-		return rawResp.pagedResponse, len(rawResp.Data), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// The server path filter is not exact, so we always apply client-side filtering when path
-	// is set. We match entries at the exact path or any sub-path (prefix + backslash separator).
-	// When path is "", the server ignores the filter, so we also handle root-level filtering here.
 	if opts.Path != nil {
-		var filtered []Entry
-		for _, entry := range allEntries {
-			if entry.Path == *opts.Path || (*opts.Path != "" && strings.HasPrefix(entry.Path, *opts.Path+"\\")) {
-				filtered = append(filtered, entry)
-			}
+		if *opts.Path == "" {
+			query.Set("exactPath", "true")
+		} else {
+			query.Set("path", *opts.Path)
 		}
-		return filtered, nil
 	}
 
-	return allEntries, nil
+	raws, err := listAll[json.RawMessage](ctx, c, query, vaultEndpoint, vaultId, entryEndpoint)
+	if err != nil {
+		return nil, fmt.Errorf("error while fetching entries: %w", err)
+	}
+
+	var entries []Entry
+	for _, raw := range raws {
+		var entry Entry
+		if err := json.Unmarshal(raw, &entry); err != nil {
+			if IsUnsupportedEntryType(err) {
+				continue
+			}
+			return nil, fmt.Errorf("failed to unmarshal entry: %w", err)
+		}
+
+		entry.VaultId = vaultId
+		entries = append(entries, entry)
+	}
+
+	return entries, nil
+}
+
+func (c *Client) getEntry(ctx context.Context, vaultId string, entryId string) (Entry, error) {
+	if vaultId == "" || entryId == "" {
+		return Entry{}, fmt.Errorf("both entry Id and vault Id are required")
+	}
+
+	reqUrl, err := entryUrl(c, nil, vaultId, entryId)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	var entry Entry
+	err = c.getJSON(ctx, reqUrl, &entry)
+	if err != nil {
+		return Entry{}, fmt.Errorf("error while fetching entry: %w", err)
+	}
+
+	entry.VaultId = vaultId
+
+	return entry, nil
+}
+
+type entryCreateRequest struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description,omitempty"`
+	Path        string    `json:"path,omitempty"`
+	Type        string    `json:"type"`
+	SubType     string    `json:"subType,omitempty"`
+	Tags        []string  `json:"tags,omitempty"`
+	Data        EntryData `json:"data"`
+}
+
+// entryUpdateRequest is the body of a PUT, where every field is required: tags and data are never null.
+type entryUpdateRequest struct {
+	Name        string    `json:"name"`
+	Description string    `json:"description"`
+	Path        string    `json:"path"`
+	Tags        []string  `json:"tags"`
+	Data        EntryData `json:"data"`
+}
+
+func (c *Client) newEntry(ctx context.Context, entry Entry) (string, error) {
+	reqUrl, err := entryUrl(c, nil, entry.VaultId)
+	if err != nil {
+		return "", err
+	}
+
+	reqBody := entryCreateRequest{
+		Name:        entry.Name,
+		Description: entry.Description,
+		Path:        entry.Path,
+		Type:        entry.Type,
+		SubType:     entry.SubType,
+		Tags:        entry.Tags,
+		Data:        nonNilData(entry.Data),
+	}
+
+	var created struct {
+		Id string `json:"id"`
+	}
+	err = c.sendJSON(ctx, http.MethodPost, reqUrl, reqBody, &created)
+	if err != nil {
+		return "", fmt.Errorf("error while creating entry: %w", err)
+	}
+
+	return created.Id, nil
+}
+
+func (c *Client) updateEntry(ctx context.Context, entry Entry) (Entry, error) {
+	if entry.Id == "" {
+		return Entry{}, fmt.Errorf("entry Id is required for updates")
+	}
+
+	reqUrl, err := entryUrl(c, nil, entry.VaultId, entry.Id)
+	if err != nil {
+		return Entry{}, err
+	}
+
+	tags := entry.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	reqBody := entryUpdateRequest{
+		Name:        entry.Name,
+		Description: entry.Description,
+		Path:        entry.Path,
+		Tags:        tags,
+		Data:        nonNilData(entry.Data),
+	}
+
+	err = c.sendJSON(ctx, http.MethodPut, reqUrl, reqBody, nil)
+	if err != nil {
+		return Entry{}, fmt.Errorf("error while updating entry: %w", err)
+	}
+
+	// The PUT answer has no secrets: read the entry back to return them.
+	updated, err := c.getEntry(ctx, entry.VaultId, entry.Id)
+	if err != nil {
+		return Entry{}, fmt.Errorf("update succeeded but failed to fetch updated entry: %w", err)
+	}
+
+	return updated, nil
+}
+
+func (c *Client) deleteEntry(ctx context.Context, vaultId string, entryId string) error {
+	if vaultId == "" || entryId == "" {
+		return fmt.Errorf("both entry Id and vault Id are required")
+	}
+
+	reqUrl, err := entryUrl(c, nil, vaultId, entryId)
+	if err != nil {
+		return err
+	}
+
+	err = c.sendJSON(ctx, http.MethodDelete, reqUrl, nil, nil)
+	if err != nil {
+		return fmt.Errorf("error while deleting entry: %w", err)
+	}
+
+	return nil
+}
+
+// rawEntry is an entry as the API sends it, its data left undecoded, for the types Entry does not decode.
+type rawEntry struct {
+	Id          string          `json:"id,omitempty"`
+	VaultId     string          `json:"vaultId,omitempty"`
+	Name        string          `json:"name"`
+	Path        string          `json:"path"`
+	Type        string          `json:"type"`
+	SubType     string          `json:"subType,omitempty"`
+	Description string          `json:"description"`
+	Tags        []string        `json:"tags"`
+	Data        json.RawMessage `json:"data"`
+	ModifiedOn  *ServerTime     `json:"modifiedOn,omitempty"`
+}
+
+func (c *Client) getRawEntry(ctx context.Context, vaultId string, entryId string, query url.Values) (rawEntry, error) {
+	if vaultId == "" || entryId == "" {
+		return rawEntry{}, fmt.Errorf("both entry Id and vault Id are required")
+	}
+
+	reqUrl, err := entryUrl(c, query, vaultId, entryId)
+	if err != nil {
+		return rawEntry{}, err
+	}
+
+	var entry rawEntry
+	err = c.getJSON(ctx, reqUrl, &entry)
+	if err != nil {
+		return rawEntry{}, fmt.Errorf("error while fetching entry: %w", err)
+	}
+
+	return entry, nil
+}
+
+func nonNilData(data EntryData) EntryData {
+	if data == nil {
+		return struct{}{}
+	}
+
+	return data
+}
+
+// validateEntryType checks that an Entry has a VaultId and a supported type/subtype.
+func validateEntryType(entry *Entry, entryType string, supportedSubTypes map[string]struct{}) error {
+	if entry.VaultId == "" {
+		return fmt.Errorf("entry must have a VaultId")
+	}
+
+	if entry.GetType() != entryType {
+		return fmt.Errorf("unsupported entry type (%s). Only %s is supported", entry.GetType(), entryType)
+	}
+
+	subType := entry.GetSubType()
+	if _, isSupported := supportedSubTypes[subType]; !isSupported {
+		var supportedList []string
+		for st := range supportedSubTypes {
+			supportedList = append(supportedList, st)
+		}
+		return fmt.Errorf("unsupported entry subtype (%s). Supported subtypes: %v", subType, supportedList)
+	}
+
+	return nil
 }

@@ -4,17 +4,21 @@ package dvls
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
 	testClient  Client
-	testVaultId string // Used by legacy tests (certificate, host, website)
+	testVaultId string // Vault holding the pre-created host and website entries
 )
 
 func TestMain(m *testing.M) {
-	testVaultId = os.Getenv("TEST_VAULT_ID") // Optional, only for legacy tests
+	testVaultId = os.Getenv("TEST_VAULT_ID")
 
 	err := setupTestClient()
 	if err != nil {
@@ -26,31 +30,25 @@ func TestMain(m *testing.M) {
 }
 
 func Test_Client(t *testing.T) {
-	t.Run("isLogged", test_isLogged)
+	t.Run("ReloginAfterLogout", test_ReloginAfterLogout)
 }
 
-func test_isLogged(t *testing.T) {
-	islogged, err := testClient.isLogged()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !islogged {
-		t.Fatalf("expected token to be valid but isLogged returned %t", islogged)
-	}
-
+// test_ReloginAfterLogout ends the client's session server-side, as a token expiry does, and checks that the next
+// call logs in again.
+func test_ReloginAfterLogout(t *testing.T) {
 	if testClient.credential.useApiKey() {
-		t.Skip("token invalidation does not apply to API key authentication")
+		t.Skip("re-login does not apply to API key authentication")
 	}
 
-	invalidClient := testClient
-	invalidClient.credential.token = "placeholder"
-	islogged, err = invalidClient.isLogged()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if islogged {
-		t.Fatalf("expected token to be invalid but isLogged returned %t", islogged)
-	}
+	staleToken := testClient.credential.currentToken()
+	logoutUrl, err := testClient.v2Url(nil, "logout")
+	require.NoError(t, err)
+	_, err = testClient.rawRequestWithContext(t.Context(), logoutUrl, http.MethodPost, defaultContentType, staleToken, nil)
+	require.NoError(t, err)
+
+	_, err = testClient.GetServerInfo()
+	require.NoError(t, err)
+	assert.NotEqual(t, staleToken, testClient.credential.currentToken())
 }
 
 func setupTestClient() error {

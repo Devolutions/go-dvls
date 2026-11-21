@@ -16,14 +16,14 @@ func TestContextCancellation(t *testing.T) {
 		close(requestReceived)
 		<-allowResponse
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"result":1,"response":{}}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
 
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -52,14 +52,14 @@ func TestContextCancellation(t *testing.T) {
 func TestContextSucceedsWithoutCancellation(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"result":1,"response":{}}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
 
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -77,14 +77,14 @@ func TestContextTimeout(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		time.Sleep(100 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"result":1,"response":{}}`))
+		_, _ = w.Write([]byte(`{}`))
 	}))
 	defer server.Close()
 
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -104,7 +104,7 @@ func TestContextPropagation(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"result":1,"response":{"id":"test-id"}}`))
+		_, _ = w.Write([]byte(`{"id":"test-id"}`))
 	}))
 	defer server.Close()
 
@@ -122,7 +122,7 @@ func TestContextPropagation(t *testing.T) {
 	client := &Client{
 		baseUri: server.URL,
 		client:  &http.Client{Transport: customTransport},
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}

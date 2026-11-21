@@ -23,6 +23,10 @@ func Test_Users(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, users[0].Id, user.Id)
 
+	user, err = testClient.Users.Get(users[0].Id)
+	require.NoError(t, err)
+	assert.Equal(t, users[0], user)
+
 	_, err = testClient.Users.GetByName("go-dvls-nonexistent-user")
 	assert.ErrorIs(t, err, ErrUserNotFound)
 }
@@ -35,12 +39,16 @@ func Test_Applications(t *testing.T) {
 
 	for _, a := range apps {
 		assert.NotEmpty(t, a.Id)
-		assert.Equal(t, UserAuthenticationApplication, a.AuthenticationType)
+		assert.NotEmpty(t, a.AppKey)
 	}
 
-	app, err := testClient.Users.GetApplicationByName(apps[0].Name)
+	app, err := testClient.Users.GetApplicationByName(apps[0].AppKey)
 	require.NoError(t, err)
 	assert.Equal(t, apps[0].Id, app.Id)
+
+	app, err = testClient.Users.GetApplication(apps[0].Id)
+	require.NoError(t, err)
+	assert.Equal(t, apps[0], app)
 
 	_, err = testClient.Users.GetApplicationByName("go-dvls-nonexistent-app")
 	assert.ErrorIs(t, err, ErrUserNotFound)
@@ -59,6 +67,10 @@ func Test_UserGroups(t *testing.T) {
 	group, err := testClient.UserGroups.GetByName(groups[0].Name)
 	require.NoError(t, err)
 	assert.Equal(t, groups[0].Id, group.Id)
+
+	group, err = testClient.UserGroups.Get(groups[0].Id)
+	require.NoError(t, err)
+	assert.Equal(t, groups[0], group)
 
 	_, err = testClient.UserGroups.GetByName("go-dvls-nonexistent-group")
 	assert.ErrorIs(t, err, ErrUserGroupNotFound)

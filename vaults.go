@@ -1,13 +1,10 @@
 package dvls
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 )
 
 type VaultVisibility string
@@ -48,14 +45,16 @@ type Vault struct {
 	Visibility    VaultVisibility    `json:"visibility"`
 }
 
-// vaultListResponse represents the paginated response from the vault list endpoint.
-type vaultListResponse struct {
-	Data []Vault `json:"data"`
-	pagedResponse
+// vaultCreateRequest leaves out the unset settings, which take their server default.
+type vaultCreateRequest struct {
+	Name          string             `json:"name"`
+	Description   string             `json:"description,omitempty"`
+	ContentType   VaultContentType   `json:"contentType,omitempty"`
+	SecurityLevel VaultSecurityLevel `json:"securityLevel,omitempty"`
+	Visibility    VaultVisibility    `json:"visibility,omitempty"`
 }
 
-// vaultRequest represents the request body for create/update operations.
-type vaultRequest struct {
+type vaultUpdateRequest struct {
 	Name          string             `json:"name"`
 	Description   string             `json:"description"`
 	ContentType   VaultContentType   `json:"contentType"`
@@ -63,9 +62,7 @@ type vaultRequest struct {
 	Visibility    VaultVisibility    `json:"visibility"`
 }
 
-const (
-	vaultEndpoint string = "/api/v1/vault"
-)
+const vaultEndpoint string = "vault"
 
 var ErrVaultNotFound = fmt.Errorf("vault not found")
 var ErrMultipleVaultsFound = fmt.Errorf("multiple vaults found")
@@ -79,43 +76,16 @@ func (c *Vaults) List() ([]Vault, error) {
 // This function handles pagination automatically and returns all vaults across all pages.
 // The provided context can be used to cancel the request.
 func (c *Vaults) ListWithContext(ctx context.Context) ([]Vault, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint)
+	return c.list(ctx, nil)
+}
+
+func (c *Vaults) list(ctx context.Context, query url.Values) ([]Vault, error) {
+	vaults, err := listAll[Vault](ctx, c.client, query, vaultEndpoint)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build vault url: %w", err)
+		return nil, fmt.Errorf("error while fetching vaults: %w", err)
 	}
 
-	parsedUrl, err := url.Parse(reqUrl)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse vault url: %w", err)
-	}
-
-	baseQuery := parsedUrl.Query()
-	baseQuery.Set("pageSize", strconv.Itoa(listPageSize))
-
-	var allVaults []Vault
-	err = fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
-		baseQuery.Set("pageNumber", strconv.Itoa(pageNumber))
-		parsedUrl.RawQuery = baseQuery.Encode()
-
-		resp, err := c.client.RequestWithContext(ctx, parsedUrl.String(), http.MethodGet, nil)
-		if err != nil {
-			return pagedResponse{}, 0, fmt.Errorf("error while fetching vaults (page %d): %w", pageNumber, err)
-		}
-
-		var listResp vaultListResponse
-		if err := json.Unmarshal(resp.Response, &listResp); err != nil {
-			return pagedResponse{}, 0, fmt.Errorf("failed to unmarshal response body (page %d): %w", pageNumber, err)
-		}
-
-		allVaults = append(allVaults, listResp.Data...)
-
-		return listResp.pagedResponse, len(listResp.Data), nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return allVaults, nil
+	return vaults, nil
 }
 
 // Get returns a single Vault based on vaultId.
@@ -126,120 +96,54 @@ func (c *Vaults) Get(vaultId string) (Vault, error) {
 // GetWithContext returns a single Vault based on vaultId.
 // The provided context can be used to cancel the request.
 func (c *Vaults) GetWithContext(ctx context.Context, vaultId string) (Vault, error) {
-	var vault Vault
-	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
+	reqUrl, err := c.client.v2Url(nil, vaultEndpoint, vaultId)
 	if err != nil {
 		return Vault{}, fmt.Errorf("failed to build vault url: %w", err)
 	}
 
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
+	var vault Vault
+	err = c.client.getJSON(ctx, reqUrl, &vault)
 	if err != nil {
 		return Vault{}, fmt.Errorf("error while fetching vault: %w", err)
-	}
-
-	err = json.Unmarshal(resp.Response, &vault)
-	if err != nil {
-		return Vault{}, fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
 	return vault, nil
 }
 
-// GetByName returns a single Vault based on name.
+// GetByName returns a single Vault based on name. The name matches ignoring case.
 // Returns ErrVaultNotFound if no vault is found.
 // Returns ErrMultipleVaultsFound if more than one vault matches the name.
 func (c *Vaults) GetByName(name string) (Vault, error) {
 	return c.GetByNameWithContext(context.Background(), name)
 }
 
-// GetByNameWithContext returns a single Vault based on name.
+// GetByNameWithContext returns a single Vault based on name. The name matches ignoring case.
 // Returns ErrVaultNotFound if no vault is found.
 // Returns ErrMultipleVaultsFound if more than one vault matches the name.
 // The provided context can be used to cancel the request.
 func (c *Vaults) GetByNameWithContext(ctx context.Context, name string) (Vault, error) {
-	vaults, err := c.ListWithContext(ctx)
+	vaults, err := c.list(ctx, url.Values{"name": {name}})
 	if err != nil {
 		return Vault{}, err
 	}
 
-	var matches []Vault
-	for _, v := range vaults {
-		if v.Name == name {
-			matches = append(matches, v)
-		}
-	}
-
-	if len(matches) == 0 {
-		return Vault{}, ErrVaultNotFound
-	}
-
-	if len(matches) > 1 {
-		return Vault{}, ErrMultipleVaultsFound
-	}
-
-	return matches[0], nil
+	return singleByName(vaults, name, func(v Vault) string { return v.Name }, ErrVaultNotFound, ErrMultipleVaultsFound)
 }
 
-// New creates a new Vault and returns the created vault.
+// New creates a new Vault and returns the created vault. Settings left empty take their server default.
 func (c *Vaults) New(vault Vault) (Vault, error) {
 	return c.NewWithContext(context.Background(), vault)
 }
 
-// NewWithContext creates a new Vault and returns the created vault.
+// NewWithContext creates a new Vault and returns the created vault. Settings left empty take their server default.
 // The provided context can be used to cancel the request.
 func (c *Vaults) NewWithContext(ctx context.Context, vault Vault) (Vault, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint)
+	reqUrl, err := c.client.v2Url(nil, vaultEndpoint)
 	if err != nil {
 		return Vault{}, fmt.Errorf("failed to build vault url: %w", err)
 	}
 
-	// Convert Default to Everything (API rejects "Default" for creation)
-	contentType := vault.ContentType
-	if contentType == VaultContentTypeDefault {
-		contentType = VaultContentTypeEverything
-	}
-
-	reqBody := vaultRequest{
-		Name:          vault.Name,
-		Description:   vault.Description,
-		ContentType:   contentType,
-		SecurityLevel: vault.SecurityLevel,
-		Visibility:    vault.Visibility,
-	}
-
-	vaultJson, err := json.Marshal(reqBody)
-	if err != nil {
-		return Vault{}, fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(vaultJson))
-	if err != nil {
-		return Vault{}, fmt.Errorf("error while creating vault: %w", err)
-	}
-
-	var createdVault Vault
-	err = json.Unmarshal(resp.Response, &createdVault)
-	if err != nil {
-		return Vault{}, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	return createdVault, nil
-}
-
-// Update updates an existing Vault and returns the updated vault.
-func (c *Vaults) Update(vault Vault) (Vault, error) {
-	return c.UpdateWithContext(context.Background(), vault)
-}
-
-// UpdateWithContext updates an existing Vault and returns the updated vault.
-// The provided context can be used to cancel the request.
-func (c *Vaults) UpdateWithContext(ctx context.Context, vault Vault) (Vault, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vault.Id)
-	if err != nil {
-		return Vault{}, fmt.Errorf("failed to build vault url: %w", err)
-	}
-
-	reqBody := vaultRequest{
+	reqBody := vaultCreateRequest{
 		Name:          vault.Name,
 		Description:   vault.Description,
 		ContentType:   vault.ContentType,
@@ -247,20 +151,42 @@ func (c *Vaults) UpdateWithContext(ctx context.Context, vault Vault) (Vault, err
 		Visibility:    vault.Visibility,
 	}
 
-	vaultJson, err := json.Marshal(reqBody)
+	var createdVault Vault
+	err = c.client.sendJSON(ctx, http.MethodPost, reqUrl, reqBody, &createdVault)
 	if err != nil {
-		return Vault{}, fmt.Errorf("failed to marshal body: %w", err)
+		return Vault{}, fmt.Errorf("error while creating vault: %w", err)
 	}
 
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(vaultJson))
+	return createdVault, nil
+}
+
+// Update replaces the settings of an existing Vault and returns the updated vault.
+// ContentType, SecurityLevel and Visibility are required.
+func (c *Vaults) Update(vault Vault) (Vault, error) {
+	return c.UpdateWithContext(context.Background(), vault)
+}
+
+// UpdateWithContext replaces the settings of an existing Vault and returns the updated vault.
+// ContentType, SecurityLevel and Visibility are required.
+// The provided context can be used to cancel the request.
+func (c *Vaults) UpdateWithContext(ctx context.Context, vault Vault) (Vault, error) {
+	reqUrl, err := c.client.v2Url(nil, vaultEndpoint, vault.Id)
 	if err != nil {
-		return Vault{}, fmt.Errorf("error while updating vault: %w", err)
+		return Vault{}, fmt.Errorf("failed to build vault url: %w", err)
+	}
+
+	reqBody := vaultUpdateRequest{
+		Name:          vault.Name,
+		Description:   vault.Description,
+		ContentType:   vault.ContentType,
+		SecurityLevel: vault.SecurityLevel,
+		Visibility:    vault.Visibility,
 	}
 
 	var updatedVault Vault
-	err = json.Unmarshal(resp.Response, &updatedVault)
+	err = c.client.sendJSON(ctx, http.MethodPut, reqUrl, reqBody, &updatedVault)
 	if err != nil {
-		return Vault{}, fmt.Errorf("failed to unmarshal response body: %w", err)
+		return Vault{}, fmt.Errorf("error while updating vault: %w", err)
 	}
 
 	return updatedVault, nil
@@ -274,15 +200,49 @@ func (c *Vaults) Delete(vaultId string) error {
 // DeleteWithContext deletes a Vault based on vaultId.
 // The provided context can be used to cancel the request.
 func (c *Vaults) DeleteWithContext(ctx context.Context, vaultId string) error {
-	reqUrl, err := url.JoinPath(c.client.baseUri, vaultEndpoint, vaultId)
+	reqUrl, err := c.client.v2Url(nil, vaultEndpoint, vaultId)
 	if err != nil {
 		return fmt.Errorf("failed to build vault url: %w", err)
 	}
 
-	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
+	err = c.client.sendJSON(ctx, http.MethodDelete, reqUrl, nil, nil)
 	if err != nil {
 		return fmt.Errorf("error while deleting vault: %w", err)
 	}
 
 	return nil
+}
+
+// ContentReadable reports whether the caller can read the entries of the vault vaultId. The entry routes answer the
+// same 404 for a vault the caller cannot open as for an entry that does not exist: when an entry read answers 404, a
+// readable vault means the entry is gone, an unreadable one that it may still exist.
+// Returns false without an error when the server answers 403 or 404, and an error for any other failure.
+func (c *Vaults) ContentReadable(vaultId string) (bool, error) {
+	return c.ContentReadableWithContext(context.Background(), vaultId)
+}
+
+// ContentReadableWithContext reports whether the caller can read the entries of the vault vaultId. The entry routes
+// answer the same 404 for a vault the caller cannot open as for an entry that does not exist: when an entry read
+// answers 404, a readable vault means the entry is gone, an unreadable one that it may still exist.
+// Returns false without an error when the server answers 403 or 404, and an error for any other failure.
+// The provided context can be used to cancel the request.
+func (c *Vaults) ContentReadableWithContext(ctx context.Context, vaultId string) (bool, error) {
+	if vaultId == "" {
+		return false, fmt.Errorf("vaultId is required")
+	}
+
+	reqUrl, err := entryUrl(c.client, url.Values{"pageSize": {"1"}}, vaultId)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
+	switch {
+	case err == nil:
+		return true, nil
+	case IsNotFound(err) || hasStatusCode(err, http.StatusForbidden):
+		return false, nil
+	default:
+		return false, fmt.Errorf("error while checking access to the vault content: %w", err)
+	}
 }

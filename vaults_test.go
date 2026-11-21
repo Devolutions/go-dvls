@@ -18,6 +18,7 @@ func Test_Vaults(t *testing.T) {
 	t.Run("NewVault", test_NewVault)
 	t.Run("UpdateVault", test_UpdateVault)
 	t.Run("ContentType_DefaultEquivalence", test_ContentType_DefaultEquivalence)
+	t.Run("ContentReadable", test_ContentReadable)
 }
 
 func test_ListVaults(t *testing.T) {
@@ -218,7 +219,7 @@ func test_UpdateVault(t *testing.T) {
 
 // test_ContentType_DefaultEquivalence verifies that:
 // 1. System vaults (Default, User vault) return VaultContentTypeDefault ("Default")
-// 2. VaultContentTypeDefault is automatically converted to VaultContentTypeEverything on creation
+// 2. A vault created with VaultContentTypeDefault keeps it
 func test_ContentType_DefaultEquivalence(t *testing.T) {
 	if testVaultId == "" {
 		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
@@ -231,10 +232,9 @@ func test_ContentType_DefaultEquivalence(t *testing.T) {
 		vault.ContentType == VaultContentTypeEverything || vault.ContentType == VaultContentTypeDefault,
 		"expected ContentType to be 'Everything' or 'Default', got %q", vault.ContentType)
 
-	// Verify that using VaultContentTypeDefault in New() works (converted to Everything)
 	newVault := Vault{
-		Name:          "test-default-conversion",
-		Description:   "Test Default to Everything conversion",
+		Name:          "test-default-content-type",
+		Description:   "Test Default content type",
 		ContentType:   VaultContentTypeDefault,
 		SecurityLevel: VaultSecurityLevelStandard,
 		Visibility:    VaultVisibilityDefault,
@@ -242,8 +242,20 @@ func test_ContentType_DefaultEquivalence(t *testing.T) {
 
 	created, err := testClient.Vaults.New(newVault)
 	require.NoError(t, err, "creating vault with VaultContentTypeDefault should work")
-	assert.Equal(t, VaultContentTypeEverything, created.ContentType)
+	assert.Equal(t, VaultContentTypeDefault, created.ContentType)
 
 	err = testClient.Vaults.Delete(created.Id)
 	require.NoError(t, err)
+}
+
+func test_ContentReadable(t *testing.T) {
+	vault := createTestVault(t, "content-readable")
+
+	readable, err := testClient.Vaults.ContentReadable(vault.Id)
+	require.NoError(t, err)
+	assert.True(t, readable)
+
+	readable, err = testClient.Vaults.ContentReadable("00000000-0000-0000-0000-00000000dead")
+	require.NoError(t, err)
+	assert.False(t, readable, "an unknown vault answers like one the caller cannot open")
 }

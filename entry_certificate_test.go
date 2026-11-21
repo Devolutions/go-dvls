@@ -3,193 +3,134 @@
 package dvls
 
 import (
-	"io"
 	"os"
-	"reflect"
+	"path/filepath"
 	"testing"
 	"time"
-)
 
-var (
-	testCertificateFilePath     string
-	testCertificateEntryId      string
-	testNewCertificateEntryFile EntryCertificate
-	testNewCertificateEntryURL  EntryCertificate
-	testCertificateEntry        EntryCertificate = EntryCertificate{
-		VaultId:               testVaultId,
-		Name:                  "TestK8sCertificate",
-		Password:              "TestK8sCertificatePassword",
-		Tags:                  []string{"test", "k8s"},
-		CertificateIdentifier: "test",
-	}
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_EntryCertificate(t *testing.T) {
-	if testVaultId == "" {
-		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	vault := createTestVault(t, "certificates")
+
+	entry := EntryCertificate{
+		VaultId:     vault.Id,
+		Name:        "TestK8sCertificate",
+		Description: "Test certificate",
+		Password:    new("TestK8sCertificatePassword"),
+		Tags:        []string{"test", "k8s"},
+		Expiration:  time.Date(2099, 1, 1, 0, 0, 0, 0, time.FixedZone("EST", -5*3600)),
 	}
 
-	testCertificateFilePath = os.Getenv("TEST_CERTIFICATE_FILE_PATH")
-	testCertificateEntryId = os.Getenv("TEST_CERTIFICATE_ENTRY_ID")
-	testCertificateEntry.Id = testCertificateEntryId
-	testCertificateEntry.VaultId = testVaultId
-	location, err := time.LoadLocation("America/Montreal")
-	if err != nil {
-		t.Fatal(err)
-	}
-	expiration := time.Date(2099, 1, 1, 0, 0, 0, 0, location)
-	testCertificateEntry.Expiration = expiration
+	t.Run("URL", func(t *testing.T) {
+		urlEntry := entry
+		urlEntry.CertificateIdentifier = "https://devolutions.net/"
+		urlEntry.UseDefaultCredentials = true
 
-	t.Run("NewCertificateFile", test_NewCertificateEntryFile)
-	t.Run("NewCertificateURL", test_NewCertificateEntryURL)
-	t.Run("GetEntry", test_GetCertificateEntry)
-	t.Run("UpdateEntry", test_UpdateCertificateEntry)
-	t.Run("DeleteEntry", test_DeleteCertificateEntry)
-}
+		created, err := testClient.Entries.Certificate.NewURL(urlEntry)
+		require.NoError(t, err)
+		require.NotEmpty(t, created.Id)
+		t.Cleanup(func() { _ = testClient.Entries.Certificate.Delete(vault.Id, created.Id) })
 
-func test_GetCertificateEntry(t *testing.T) {
-	testGetEntry := testCertificateEntry
+		fetched, err := testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, EntryCertificateDataModeURL, fetched.GetDataMode())
+		assert.Equal(t, urlEntry.CertificateIdentifier, fetched.CertificateIdentifier)
+		assert.Equal(t, urlEntry.Password, fetched.Password)
+		assert.ElementsMatch(t, urlEntry.Tags, fetched.Tags)
+		assert.True(t, urlEntry.Expiration.Equal(fetched.Expiration), "expiration %v", fetched.Expiration)
+		assert.True(t, fetched.UseDefaultCredentials)
 
-	entry, err := testClient.Entries.Certificate.Get(testGetEntry.Id)
-	if err != nil {
-		t.Fatal(err)
-	}
+		withoutPassword := fetched
+		withoutPassword.Password = nil
+		withPassword, err := testClient.Entries.Certificate.GetPassword(withoutPassword)
+		require.NoError(t, err)
+		assert.Equal(t, urlEntry.Password, withPassword.Password)
 
-	entry, err = testClient.Entries.Certificate.GetPassword(entry)
-	if err != nil {
-		t.Fatal(err)
-	}
+		fetched.Name = "TestK8sUpdatedEntry"
+		fetched.CertificateIdentifier = "https://devolutions.net/updated"
+		fetched.Expiration = time.Time{}
+		fetched.UseDefaultCredentials = false
+		_, err = testClient.Entries.Certificate.Update(fetched)
+		require.NoError(t, err)
 
-	entry.data = testGetEntry.data
+		updated, err := testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, "TestK8sUpdatedEntry", updated.Name)
+		assert.Equal(t, "https://devolutions.net/updated", updated.CertificateIdentifier)
+		assert.Equal(t, EntryCertificateDataModeURL, updated.GetDataMode())
+		assert.True(t, updated.Expiration.IsZero(), "a zero expiration clears it, got %v", updated.Expiration)
+		assert.False(t, updated.UseDefaultCredentials)
+		assert.Equal(t, urlEntry.Password, updated.Password, "a nil password keeps the stored one")
 
-	if !entry.Expiration.Equal(testGetEntry.Expiration) {
-		t.Fatalf("fetched entry expiration did not match test entry. Expected %v, got %v", testGetEntry.Expiration, entry.Expiration)
-	}
+		metadataOnly := EntryCertificate{Id: created.Id, VaultId: vault.Id, Name: "TestK8sMetadataOnly", CertificateIdentifier: updated.CertificateIdentifier}
+		result, err := testClient.Entries.Certificate.Update(metadataOnly)
+		require.NoError(t, err)
+		assert.Nil(t, result.Password, "the password an update kept is unknown")
 
-	entry.Expiration = testGetEntry.Expiration
+		updated, err = testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, "TestK8sMetadataOnly", updated.Name)
+		assert.Equal(t, EntryCertificateDataModeURL, updated.GetDataMode())
+		assert.Equal(t, urlEntry.Password, updated.Password)
 
-	if !reflect.DeepEqual(entry, testGetEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testGetEntry, entry)
-	}
-}
+		metadataOnly.Password = new("")
+		_, err = testClient.Entries.Certificate.Update(metadataOnly)
+		require.NoError(t, err)
 
-func test_NewCertificateEntryFile(t *testing.T) {
-	entry := testCertificateEntry
-	entry.Id = ""
-	file, err := os.Open(testCertificateFilePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+		updated, err = testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		if updated.Password != nil {
+			assert.Empty(t, *updated.Password, "a pointer to an empty password clears it")
+		}
+	})
 
-	fileBytes, err := io.ReadAll(file)
-	if err != nil {
-		t.Fatalf("failed read file: %v", err)
-	}
+	t.Run("File", func(t *testing.T) {
+		fileBytes := []byte("go-dvls test certificate content")
+		fileName := "test.p12"
+		if path := os.Getenv("TEST_CERTIFICATE_FILE_PATH"); path != "" {
+			var err error
+			fileBytes, err = os.ReadFile(path)
+			require.NoError(t, err)
+			fileName = filepath.Base(path)
+		}
 
-	stat, err := file.Stat()
-	if err != nil {
-		t.Fatalf("failed read file: %v", err)
-	}
+		fileEntry := entry
+		fileEntry.CertificateIdentifier = fileName
 
-	entry.CertificateIdentifier = stat.Name()
-	entry.UseDefaultCredentials = true
+		created, err := testClient.Entries.Certificate.NewFile(fileEntry, fileBytes)
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = testClient.Entries.Certificate.Delete(vault.Id, created.Id) })
 
-	newEntry, err := testClient.Entries.Certificate.NewFile(entry, fileBytes)
-	if err != nil {
-		t.Fatal(err)
-	}
+		content, err := testClient.Entries.Certificate.GetFileContent(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, fileBytes, content)
 
-	returnedFileBytes, err := testClient.Entries.Certificate.GetFileContent(newEntry.Id)
-	if err != nil {
-		t.Fatal(err)
-	}
+		fetched, err := testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, EntryCertificateDataModeFile, fetched.GetDataMode())
+		assert.Equal(t, fileName, fetched.CertificateIdentifier)
 
-	if !reflect.DeepEqual(fileBytes, returnedFileBytes) {
-		t.Fatalf("fetched file content did not match test file content. Expected %#v, got %#v", fileBytes, returnedFileBytes)
-	}
+		fetched.Description = "updated"
+		_, err = testClient.Entries.Certificate.Update(fetched)
+		require.NoError(t, err)
 
-	entry.Id = newEntry.Id
-	entry.data = newEntry.data
-	newEntry, err = testClient.Entries.Certificate.GetPassword(newEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
+		content, err = testClient.Entries.Certificate.GetFileContent(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, fileBytes, content, "an update without content keeps the stored file")
 
-	testNewCertificateEntryFile = newEntry
+		_, err = testClient.Entries.Certificate.Update(EntryCertificate{Id: created.Id, VaultId: vault.Id, Name: "renamed", CertificateIdentifier: fileName})
+		require.NoError(t, err)
 
-	if !entry.Expiration.Equal(newEntry.Expiration) {
-		t.Fatalf("fetched entry expiration did not match test entry. Expected %v, got %v", entry.Expiration, newEntry.Expiration)
-	}
+		renamed, err := testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, EntryCertificateDataModeFile, renamed.GetDataMode(), "an entry that did not come from Get keeps its data mode")
+		assert.Equal(t, fileName, renamed.CertificateIdentifier)
 
-	entry.Expiration = newEntry.Expiration
-
-	if !reflect.DeepEqual(entry, newEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", entry, newEntry)
-	}
-}
-
-func test_NewCertificateEntryURL(t *testing.T) {
-	entry := testCertificateEntry
-	entry.Id = ""
-	entry.CertificateIdentifier = "https://devolutions.net/"
-
-	newEntry, err := testClient.Entries.Certificate.NewURL(entry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	entry.Id = newEntry.Id
-	entry.data = newEntry.data
-	newEntry, err = testClient.Entries.Certificate.GetPassword(newEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	testNewCertificateEntryURL = newEntry
-
-	if !entry.Expiration.Equal(newEntry.Expiration) {
-		t.Fatalf("fetched entry expiration did not match test entry. Expected %v, got %v", entry.Expiration, newEntry.Expiration)
-	}
-
-	entry.Expiration = newEntry.Expiration
-
-	if !reflect.DeepEqual(entry, newEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", entry, newEntry)
-	}
-	testCertificateEntry = entry
-}
-
-func test_UpdateCertificateEntry(t *testing.T) {
-	testUpdatedEntry := testNewCertificateEntryURL
-	testUpdatedEntry.Name = "TestK8sUpdatedEntry"
-
-	entry, err := testClient.Entries.Certificate.Update(testUpdatedEntry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	entry, err = testClient.Entries.Certificate.GetPassword(entry)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	entry.data = testUpdatedEntry.data
-
-	if !reflect.DeepEqual(entry, testUpdatedEntry) {
-		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testUpdatedEntry, entry)
-	}
-
-	testNewCertificateEntryURL = entry
-}
-
-func test_DeleteCertificateEntry(t *testing.T) {
-	err := testClient.Entries.Certificate.Delete(testNewCertificateEntryURL.Id)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	err = testClient.Entries.Certificate.Delete(testNewCertificateEntryFile.Id)
-	if err != nil {
-		t.Fatal(err)
-	}
+		content, err = testClient.Entries.Certificate.GetFileContent(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, fileBytes, content)
+	})
 }

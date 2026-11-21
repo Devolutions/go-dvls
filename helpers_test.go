@@ -77,7 +77,6 @@ func createTestFolderPath(t *testing.T, vaultId string, path string) {
 
 	parentPath := ""
 	for segment := range strings.SplitSeq(path, "\\") {
-		// A folder entry's path is its own full path, not its parent's.
 		folderPath := segment
 		if parentPath != "" {
 			folderPath = parentPath + "\\" + segment
@@ -88,7 +87,8 @@ func createTestFolderPath(t *testing.T, vaultId string, path string) {
 			continue
 		}
 
-		_, err := testClient.Entries.Folder.GetByName(vaultId, segment, GetByNameOptions{Path: &folderPath})
+		lookupPath := parentPath
+		_, err := testClient.Entries.Folder.GetByName(vaultId, segment, GetByNameOptions{Path: &lookupPath})
 		if errors.Is(err, ErrEntryNotFound) {
 			_, err = testClient.Entries.Folder.New(Entry{
 				VaultId: vaultId,
@@ -101,7 +101,7 @@ func createTestFolderPath(t *testing.T, vaultId string, path string) {
 			require.NoError(t, err, "failed to create folder %q under %q", segment, parentPath)
 
 			waitUntil(t, 10*time.Second, fmt.Sprintf("folder %q to be indexed", folderPath), func() bool {
-				_, err := testClient.Entries.Folder.GetByName(vaultId, segment, GetByNameOptions{Path: &folderPath})
+				_, err := testClient.Entries.Folder.GetByName(vaultId, segment, GetByNameOptions{Path: &lookupPath})
 				return err == nil
 			})
 		} else {
