@@ -395,7 +395,7 @@ func TestRequest_ReloginTakenOverWhenLeaderCanceled(t *testing.T) {
 		assert.Equal(t, http.MethodPost, r.Method)
 		if logins.Add(1) == 1 {
 			// The server notices the client went away only once the request body has been read.
-			io.Copy(io.Discard, r.Body)
+			_, _ = io.Copy(io.Discard, r.Body)
 			close(loginReceived)
 			<-r.Context().Done()
 			return
