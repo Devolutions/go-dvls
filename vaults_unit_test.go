@@ -118,3 +118,42 @@ func TestVaultsUpdate(t *testing.T) {
 	_, err := client.Vaults.Update(Vault{Id: testVaultID, Name: "Prod", ContentType: VaultContentTypeSecrets, SecurityLevel: VaultSecurityLevelHigh, Visibility: VaultVisibilityPrivate})
 	require.NoError(t, err)
 }
+
+func TestVaultsContentReadable(t *testing.T) {
+	tests := []struct {
+		name         string
+		status       int
+		body         string
+		wantReadable bool
+		wantError    bool
+	}{
+		{name: "Readable", status: http.StatusOK, body: `{"currentPage":1,"pageSize":1,"totalCount":0,"totalPage":0,"data":[]}`, wantReadable: true},
+		{name: "NotFound", status: http.StatusNotFound, body: `{"message":"The requested resource was not found."}`},
+		{name: "Forbidden", status: http.StatusForbidden, body: `{"message":"Access denied."}`},
+		{name: "ServerError", status: http.StatusInternalServerError, body: `{"message":"An unexpected error occurred."}`, wantError: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "1", r.URL.Query().Get("pageSize"))
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(tt.status)
+				w.Write([]byte(tt.body))
+			})
+
+			client := newTestClient(t, mux)
+
+			readable, err := client.Vaults.ContentReadable(testVaultID)
+			if tt.wantError {
+				require.Error(t, err)
+				assert.False(t, readable)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.wantReadable, readable)
+		})
+	}
+}

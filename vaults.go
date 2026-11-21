@@ -212,3 +212,37 @@ func (c *Vaults) DeleteWithContext(ctx context.Context, vaultId string) error {
 
 	return nil
 }
+
+// ContentReadable reports whether the caller can read the entries of the vault vaultId. The entry routes answer the
+// same 404 for a vault the caller cannot open as for an entry that does not exist: when an entry read answers 404, a
+// readable vault means the entry is gone, an unreadable one that it may still exist.
+// Returns false without an error when the server answers 403 or 404, and an error for any other failure.
+func (c *Vaults) ContentReadable(vaultId string) (bool, error) {
+	return c.ContentReadableWithContext(context.Background(), vaultId)
+}
+
+// ContentReadableWithContext reports whether the caller can read the entries of the vault vaultId. The entry routes
+// answer the same 404 for a vault the caller cannot open as for an entry that does not exist: when an entry read
+// answers 404, a readable vault means the entry is gone, an unreadable one that it may still exist.
+// Returns false without an error when the server answers 403 or 404, and an error for any other failure.
+// The provided context can be used to cancel the request.
+func (c *Vaults) ContentReadableWithContext(ctx context.Context, vaultId string) (bool, error) {
+	if vaultId == "" {
+		return false, fmt.Errorf("vaultId is required")
+	}
+
+	reqUrl, err := entryUrl(c.client, url.Values{"pageSize": {"1"}}, vaultId)
+	if err != nil {
+		return false, err
+	}
+
+	_, err = c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
+	switch {
+	case err == nil:
+		return true, nil
+	case IsNotFound(err) || hasStatusCode(err, http.StatusForbidden):
+		return false, nil
+	default:
+		return false, fmt.Errorf("error while checking access to the vault content: %w", err)
+	}
+}

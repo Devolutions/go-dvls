@@ -74,6 +74,8 @@ Breaking changes:
   are always sent, so an empty one is cleared, while an empty secret keeps the stored one. A folder's `Path` is its
   parent folder everywhere (it used to read as its own full path): `GetEntriesOptions.Path` lists a folder under its
   parent, not under itself, and an update sending the folder's own full path is refused.
+- The entry routes answer 404 for a vault the caller cannot open, the same answer as for an entry that does not
+  exist, so an entry 404 alone does not prove the entry is gone: `Vaults.ContentReadable` tells the two apart.
 
 ## Usage
 - Run go get `go get github.com/Devolutions/go-dvls`
