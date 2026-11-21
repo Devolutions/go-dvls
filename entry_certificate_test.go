@@ -19,7 +19,7 @@ func Test_EntryCertificate(t *testing.T) {
 		VaultId:     vault.Id,
 		Name:        "TestK8sCertificate",
 		Description: "Test certificate",
-		Password:    "TestK8sCertificatePassword",
+		Password:    new("TestK8sCertificatePassword"),
 		Tags:        []string{"test", "k8s"},
 		Expiration:  time.Date(2099, 1, 1, 0, 0, 0, 0, time.FixedZone("EST", -5*3600)),
 	}
@@ -44,7 +44,7 @@ func Test_EntryCertificate(t *testing.T) {
 		assert.True(t, fetched.UseDefaultCredentials)
 
 		withoutPassword := fetched
-		withoutPassword.Password = ""
+		withoutPassword.Password = nil
 		withPassword, err := testClient.Entries.Certificate.GetPassword(withoutPassword)
 		require.NoError(t, err)
 		assert.Equal(t, urlEntry.Password, withPassword.Password)
@@ -63,6 +63,28 @@ func Test_EntryCertificate(t *testing.T) {
 		assert.Equal(t, EntryCertificateDataModeURL, updated.GetDataMode())
 		assert.True(t, updated.Expiration.IsZero(), "a zero expiration clears it, got %v", updated.Expiration)
 		assert.False(t, updated.UseDefaultCredentials)
+		assert.Equal(t, urlEntry.Password, updated.Password, "a nil password keeps the stored one")
+
+		metadataOnly := EntryCertificate{Id: created.Id, VaultId: vault.Id, Name: "TestK8sMetadataOnly", CertificateIdentifier: updated.CertificateIdentifier}
+		result, err := testClient.Entries.Certificate.Update(metadataOnly)
+		require.NoError(t, err)
+		assert.Nil(t, result.Password, "the password an update kept is unknown")
+
+		updated, err = testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, "TestK8sMetadataOnly", updated.Name)
+		assert.Equal(t, EntryCertificateDataModeURL, updated.GetDataMode())
+		assert.Equal(t, urlEntry.Password, updated.Password)
+
+		metadataOnly.Password = new("")
+		_, err = testClient.Entries.Certificate.Update(metadataOnly)
+		require.NoError(t, err)
+
+		updated, err = testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		if updated.Password != nil {
+			assert.Empty(t, *updated.Password, "a pointer to an empty password clears it")
+		}
 	})
 
 	t.Run("File", func(t *testing.T) {
@@ -98,5 +120,17 @@ func Test_EntryCertificate(t *testing.T) {
 		content, err = testClient.Entries.Certificate.GetFileContent(vault.Id, created.Id)
 		require.NoError(t, err)
 		assert.Equal(t, fileBytes, content, "an update without content keeps the stored file")
+
+		_, err = testClient.Entries.Certificate.Update(EntryCertificate{Id: created.Id, VaultId: vault.Id, Name: "renamed", CertificateIdentifier: fileName})
+		require.NoError(t, err)
+
+		renamed, err := testClient.Entries.Certificate.Get(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, EntryCertificateDataModeFile, renamed.GetDataMode(), "an entry that did not come from Get keeps its data mode")
+		assert.Equal(t, fileName, renamed.CertificateIdentifier)
+
+		content, err = testClient.Entries.Certificate.GetFileContent(vault.Id, created.Id)
+		require.NoError(t, err)
+		assert.Equal(t, fileBytes, content)
 	})
 }

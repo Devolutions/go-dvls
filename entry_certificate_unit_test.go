@@ -44,7 +44,8 @@ func TestCertificateGet(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantMode, cert.GetDataMode())
 			assert.Equal(t, tt.wantIdentifier, cert.CertificateIdentifier)
-			assert.Equal(t, "pw", cert.Password)
+			require.NotNil(t, cert.Password)
+			assert.Equal(t, "pw", *cert.Password)
 			assert.Equal(t, testVaultID, cert.VaultId)
 			assert.True(t, tt.wantExpiration.Equal(cert.Expiration), "expiration %v", cert.Expiration)
 			assert.Equal(t, tt.wantDefaultCredUse, cert.UseDefaultCredentials)
@@ -93,7 +94,8 @@ func TestCertificateGetPassword(t *testing.T) {
 
 	cert, err := client.Entries.Certificate.GetPassword(EntryCertificate{Id: testEntryID, VaultId: testVaultID, Name: "kept"})
 	require.NoError(t, err)
-	assert.Equal(t, "pw", cert.Password)
+	require.NotNil(t, cert.Password)
+	assert.Equal(t, "pw", *cert.Password)
 	assert.Equal(t, "kept", cert.Name)
 }
 
@@ -141,10 +143,10 @@ func TestCertificateNew(t *testing.T) {
 			client := newTestClient(t, mux)
 
 			expiration := time.Date(2099, 1, 1, 0, 0, 0, 0, time.FixedZone("EST", -5*3600))
-			cert, err := tt.create(client, EntryCertificate{VaultId: testVaultID, Name: "cert", EntryFolderPath: "F", Password: "pw", Expiration: expiration, UseDefaultCredentials: true, CertificateIdentifier: "https://example.com/c.pfx"})
+			cert, err := tt.create(client, EntryCertificate{VaultId: testVaultID, Name: "cert", EntryFolderPath: "F", Password: new("pw"), Expiration: expiration, UseDefaultCredentials: true, CertificateIdentifier: "https://example.com/c.pfx"})
 			require.NoError(t, err)
 			assert.Equal(t, testEntryID, cert.Id)
-			assert.Equal(t, "pw", cert.Password)
+			assert.Equal(t, new("pw"), cert.Password)
 		})
 	}
 }
@@ -155,11 +157,12 @@ func TestCertificateUpdate_KeepsDataMode(t *testing.T) {
 		w.Header().Set("Content-Type", "application/json")
 		switch r.Method {
 		case http.MethodGet:
+			assert.Equal(t, "false", r.URL.Query().Get("includePasswords"), "a metadata update must not read the password")
 			w.Write([]byte(testCertificateFileJSON))
 		case http.MethodPut:
 			var body map[string]any
 			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
-			assert.Equal(t, map[string]any{"dataMode": "File", "fileName": "renamed.p12", "expiresOn": nil, "useDefaultCredentials": false}, body["data"], "no file content and an empty password keep the stored ones; a zero expiration clears it")
+			assert.Equal(t, map[string]any{"fileName": "renamed.p12", "expiresOn": nil, "useDefaultCredentials": false}, body["data"], "no data mode, file content or password keeps the stored ones; a zero expiration clears it")
 			assert.Equal(t, []any{}, body["tags"])
 			w.Write([]byte(testCertificateFileJSON))
 		default:
@@ -172,6 +175,78 @@ func TestCertificateUpdate_KeepsDataMode(t *testing.T) {
 	cert, err := client.Entries.Certificate.Update(EntryCertificate{Id: testEntryID, VaultId: testVaultID, Name: "cert", CertificateIdentifier: "renamed.p12"})
 	require.NoError(t, err)
 	assert.Equal(t, EntryCertificateDataModeFile, cert.GetDataMode())
+	assert.Nil(t, cert.Password, "a kept password is unknown, not empty")
+}
+
+func TestCertificateUpdate_Password(t *testing.T) {
+	tests := []struct {
+		name         string
+		password     *string
+		wantPassword any
+	}{
+		{name: "Clear", password: new(""), wantPassword: ""},
+		{name: "Set", password: new("new-pw"), wantPassword: "new-pw"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc(testEntryPath, func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				switch r.Method {
+				case http.MethodGet:
+					w.Write([]byte(testCertificateUrlJSON))
+				case http.MethodPut:
+					var body map[string]any
+					require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+					data, ok := body["data"].(map[string]any)
+					require.True(t, ok)
+					assert.Contains(t, data, "password")
+					assert.Equal(t, tt.wantPassword, data["password"])
+					w.Write([]byte(testCertificateUrlJSON))
+				default:
+					t.Errorf("unexpected method %s", r.Method)
+				}
+			})
+
+			client := newTestClient(t, mux)
+
+			cert, err := client.Entries.Certificate.Update(EntryCertificate{Id: testEntryID, VaultId: testVaultID, Name: "cert", CertificateIdentifier: "https://example.com/c.pfx", Password: tt.password})
+			require.NoError(t, err)
+			assert.Equal(t, tt.password, cert.Password)
+		})
+	}
+}
+
+func TestCertificateUpdate_FromGetSkipsRead(t *testing.T) {
+	var gets int
+
+	mux := http.NewServeMux()
+	mux.HandleFunc(testEntryPath, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodGet:
+			gets++
+			w.Write([]byte(`{"id":"` + testEntryID + `","vaultId":"` + testVaultID + `","name":"cert","path":"","type":"Document","subType":"Certificate","description":"","tags":[],"data":{"dataMode":"Url","url":"https://example.com/c.pfx","expiresOn":"2099-01-01T05:00:00.1234567Z","useDefaultCredentials":false}}`))
+		case http.MethodPut:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, map[string]any{"url": "https://example.com/c.pfx", "expiresOn": "2099-01-01T05:00:00.1234567Z", "useDefaultCredentials": false}, body["data"], "an unchanged expiration keeps its fractional seconds")
+			w.Write([]byte(testCertificateUrlJSON))
+		default:
+			t.Errorf("unexpected method %s", r.Method)
+		}
+	})
+
+	client := newTestClient(t, mux)
+
+	cert, err := client.Entries.Certificate.Get(testVaultID, testEntryID)
+	require.NoError(t, err)
+	assert.Equal(t, time.Date(2099, 1, 1, 5, 0, 0, 123456700, time.UTC), cert.Expiration)
+
+	_, err = client.Entries.Certificate.Update(cert)
+	require.NoError(t, err)
+	assert.Equal(t, 1, gets, "an entry read with Get already has its data mode")
 }
 
 func TestCertificateDelete(t *testing.T) {

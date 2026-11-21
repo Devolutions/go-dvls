@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"time"
 )
 
@@ -32,7 +33,12 @@ type EntryCertificate struct {
 	Description     string
 	EntryFolderPath string
 	Tags            []string
-	Password        string
+
+	// Password is the stored password on Get, nil when the server sends none. On New, nil sets none. On Update, nil
+	// keeps the stored password and a pointer to "" clears it. The certificate New and Update return carries the
+	// Password sent, so it is nil after an Update that kept the stored password: the server does not return it, and
+	// nil then means unknown, not empty.
+	Password *string
 
 	// Expiration is the certificate's expiration date; the zero time means none.
 	Expiration            time.Time
@@ -45,13 +51,13 @@ type EntryCertificate struct {
 }
 
 // entryCertificateData always sends expiresOn and useDefaultCredentials: a PUT keeps a property it omits, and a null
-// expiresOn clears it.
+// expiresOn clears it. An update omits dataMode, which the server then keeps.
 type entryCertificateData struct {
-	DataMode              EntryCertificateDataMode `json:"dataMode"`
+	DataMode              EntryCertificateDataMode `json:"dataMode,omitempty"`
 	Url                   string                   `json:"url,omitempty"`
 	FileName              string                   `json:"fileName,omitempty"`
 	FileContent           string                   `json:"fileContent,omitempty"`
-	Password              string                   `json:"password,omitempty"`
+	Password              *string                  `json:"password,omitempty"`
 	ExpiresOn             *string                  `json:"expiresOn"`
 	UseDefaultCredentials bool                     `json:"useDefaultCredentials"`
 }
@@ -77,7 +83,7 @@ func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
 	var expiration time.Time
 	if data.ExpiresOn != nil && *data.ExpiresOn != "" {
 		var err error
-		expiration, err = time.Parse(time.RFC3339, *data.ExpiresOn)
+		expiration, err = time.Parse(time.RFC3339Nano, *data.ExpiresOn)
 		if err != nil {
 			return EntryCertificate{}, fmt.Errorf("failed to parse certificate expiration: %w", err)
 		}
@@ -101,7 +107,7 @@ func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
 func (e EntryCertificate) data(mode EntryCertificateDataMode, content []byte) entryCertificateData {
 	data := entryCertificateData{DataMode: mode, Password: e.Password, UseDefaultCredentials: e.UseDefaultCredentials}
 	if !e.Expiration.IsZero() {
-		expiresOn := e.Expiration.UTC().Format(time.RFC3339)
+		expiresOn := e.Expiration.UTC().Format(time.RFC3339Nano)
 		data.ExpiresOn = &expiresOn
 	}
 	if mode == EntryCertificateDataModeFile {
@@ -229,19 +235,33 @@ func (c *EntryCertificateService) newWithContext(ctx context.Context, entry Entr
 }
 
 // Update updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other field is
-// replaced (a zero Expiration clears it); an empty Password keeps the stored one.
+// replaced (a zero Expiration clears it); a nil Password keeps the stored one and a pointer to "" clears it.
+// It does not read the password: an entry that did not come from Get is read without it to learn its data mode.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
 	return c.UpdateWithContext(context.Background(), entry)
 }
 
 // UpdateWithContext updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other
-// field is replaced (a zero Expiration clears it); an empty Password keeps the stored one.
+// field is replaced (a zero Expiration clears it); a nil Password keeps the stored one and a pointer to "" clears it.
+// It does not read the password: an entry that did not come from Get is read without it to learn its data mode.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
-	oldEntry, err := c.GetWithContext(ctx, entry.VaultId, entry.Id)
-	if err != nil {
-		return EntryCertificate{}, err
+	mode := entry.mode
+	if mode == "" {
+		raw, err := c.client.getRawEntry(ctx, entry.VaultId, entry.Id, url.Values{"includePasswords": {"false"}})
+		if err != nil {
+			return EntryCertificate{}, err
+		}
+
+		stored, err := certificateFromRaw(raw)
+		if err != nil {
+			return EntryCertificate{}, err
+		}
+		mode = stored.mode
 	}
+
+	data := entry.data(mode, nil)
+	data.DataMode = ""
 
 	reqUrl, err := entryUrl(c.client, nil, entry.VaultId, entry.Id)
 	if err != nil {
@@ -258,14 +278,14 @@ func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry E
 		Description: entry.Description,
 		Path:        entry.EntryFolderPath,
 		Tags:        tags,
-		Data:        entry.data(oldEntry.mode, nil),
+		Data:        data,
 	}
 
 	return c.send(ctx, http.MethodPut, reqUrl, reqBody, entry.Password, "error while updating entry")
 }
 
 // send writes a certificate and returns the server's answer, which has no password: the password sent is put back.
-func (c *EntryCertificateService) send(ctx context.Context, method string, reqUrl string, reqBody any, password string, errorPrefix string) (EntryCertificate, error) {
+func (c *EntryCertificateService) send(ctx context.Context, method string, reqUrl string, reqBody any, password *string, errorPrefix string) (EntryCertificate, error) {
 	var raw rawEntry
 	err := c.client.sendJSON(ctx, method, reqUrl, reqBody, &raw)
 	if err != nil {

@@ -58,6 +58,9 @@ Breaking changes:
   `GetApplicationByName` matches the unique application key (`AppKey`), not the display name (`Name`).
   `UserGroup`: `IsWorkspaceOwner` replaces `IsAdministrator`, `IsEnabled` is added.
 - `EntryCertificate.Expiration` is returned in UTC and an update with a zero `Expiration` clears it.
+  `EntryCertificate.Password` is a `*string`: on `Update`, nil keeps the stored password and a pointer to `""` clears
+  it; the certificate `Update` returns has the password sent, nil (unknown) when it kept the stored one. `Update`
+  no longer reads the password, so editing the metadata of a certificate does not need the right to view it.
   `EntryHost` and `EntryWebsite` lose `ConnectionType`; `EntryWebsite.ConnectionSubType` is the browser and
   `WebBrowserApplication` is removed.
 - `Entries.Host.GetHostDetails` and `Entries.Website.GetWebsiteDetails` return the username and password stored on
