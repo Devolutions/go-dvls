@@ -218,7 +218,7 @@ func test_UpdateVault(t *testing.T) {
 
 // test_ContentType_DefaultEquivalence verifies that:
 // 1. System vaults (Default, User vault) return VaultContentTypeDefault ("Default")
-// 2. VaultContentTypeDefault is automatically converted to VaultContentTypeEverything on creation
+// 2. A vault created with VaultContentTypeDefault keeps it
 func test_ContentType_DefaultEquivalence(t *testing.T) {
 	if testVaultId == "" {
 		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
@@ -231,10 +231,9 @@ func test_ContentType_DefaultEquivalence(t *testing.T) {
 		vault.ContentType == VaultContentTypeEverything || vault.ContentType == VaultContentTypeDefault,
 		"expected ContentType to be 'Everything' or 'Default', got %q", vault.ContentType)
 
-	// Verify that using VaultContentTypeDefault in New() works (converted to Everything)
 	newVault := Vault{
-		Name:          "test-default-conversion",
-		Description:   "Test Default to Everything conversion",
+		Name:          "test-default-content-type",
+		Description:   "Test Default content type",
 		ContentType:   VaultContentTypeDefault,
 		SecurityLevel: VaultSecurityLevelStandard,
 		Visibility:    VaultVisibilityDefault,
@@ -242,7 +241,7 @@ func test_ContentType_DefaultEquivalence(t *testing.T) {
 
 	created, err := testClient.Vaults.New(newVault)
 	require.NoError(t, err, "creating vault with VaultContentTypeDefault should work")
-	assert.Equal(t, VaultContentTypeEverything, created.ContentType)
+	assert.Equal(t, VaultContentTypeDefault, created.ContentType)
 
 	err = testClient.Vaults.Delete(created.Id)
 	require.NoError(t, err)

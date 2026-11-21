@@ -5,6 +5,7 @@ package dvls
 import (
 	"os"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -14,7 +15,6 @@ var (
 	testWebsiteEntry    EntryWebsite = EntryWebsite{
 		Description:       "Test website description",
 		EntryName:         "TestWebsite",
-		ConnectionType:    ServerConnectionWebBrowser,
 		ConnectionSubType: ServerConnectionSubTypeGoogleChrome,
 		Tags:              []string{"Test tag 1", "Test tag 2", "web"},
 	}
@@ -23,42 +23,41 @@ var (
 const (
 	testWebsiteUsername string = "testuser"
 	testWebsiteURL      string = "https://test.example.com"
-	testWebsiteBrowser  string = "GoogleChrome"
 )
 
 func Test_EntryWebsite(t *testing.T) {
-	if testVaultId == "" {
-		t.Skip("Skipping legacy API test: TEST_VAULT_ID not set")
+	testWebsiteEntryId = os.Getenv("TEST_WEBSITE_ENTRY_ID")
+	if testVaultId == "" || testWebsiteEntryId == "" {
+		t.Skip("Skipping website test: TEST_VAULT_ID or TEST_WEBSITE_ENTRY_ID not set")
 	}
 
-	testWebsiteEntryId = os.Getenv("TEST_WEBSITE_ENTRY_ID")
 	testWebsiteEntry.Id = testWebsiteEntryId
 	testWebsiteEntry.VaultId = testVaultId
 	testWebsiteEntry.WebsiteDetails = EntryWebsiteAuthDetails{
-		Username:              testWebsiteUsername,
-		URL:                   testWebsiteURL,
-		WebBrowserApplication: 3,
+		Username: testWebsiteUsername,
+		URL:      testWebsiteURL,
 	}
-	testWebsiteEntry.ConnectionSubType = ServerConnectionSubTypeGoogleChrome
 
 	t.Run("GetEntry", test_GetWebsiteEntry)
 	t.Run("GetEntryWebsite", test_GetWebsiteDetails)
 }
 
 func test_GetWebsiteEntry(t *testing.T) {
-	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.Id)
+	entry, err := testClient.Entries.Website.Get(testVaultId, testWebsiteEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	testWebsiteEntry.ModifiedDate = entry.ModifiedDate
+	sort.Strings(entry.Tags)
+	sort.Strings(testWebsiteEntry.Tags)
 	if !reflect.DeepEqual(entry, testWebsiteEntry) {
 		t.Fatalf("fetched entry did not match test entry. Expected %#v, got %#v", testWebsiteEntry, entry)
 	}
 }
 
 func test_GetWebsiteDetails(t *testing.T) {
-	entry, err := testClient.Entries.Website.Get(testWebsiteEntry.Id)
+	entry, err := testClient.Entries.Website.Get(testVaultId, testWebsiteEntry.Id)
 	if err != nil {
 		t.Fatal(err)
 	}

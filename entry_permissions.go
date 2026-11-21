@@ -1,296 +1,154 @@
 package dvls
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 )
 
 type EntryPermissionsService service
 
-// EntryPermission represents the principals granted a single right on an
-// entry or folder. Roles contains principal ids (users, user groups and
-// applications share the same list).
+const entryPermissionPath string = "permission"
+
+// SecurityRoleOverride is the permission mode of an entry or of one of its rights.
+type SecurityRoleOverride string
+
+const (
+	SecurityRoleOverrideDefault         SecurityRoleOverride = "Default"
+	SecurityRoleOverrideCustom          SecurityRoleOverride = "Custom"
+	SecurityRoleOverrideInherited       SecurityRoleOverride = "Inherited"
+	SecurityRoleOverrideEveryone        SecurityRoleOverride = "Everyone"
+	SecurityRoleOverrideNever           SecurityRoleOverride = "Never"
+	SecurityRoleOverrideCustomInherited SecurityRoleOverride = "CustomAndInherited"
+)
+
+// SecurityRoleRight is a right an entry permission sets.
+type SecurityRoleRight string
+
+const (
+	SecurityRoleRightView                              SecurityRoleRight = "View"
+	SecurityRoleRightViewPassword                      SecurityRoleRight = "ViewPassword"
+	SecurityRoleRightAdd                               SecurityRoleRight = "Add"
+	SecurityRoleRightDelete                            SecurityRoleRight = "Delete"
+	SecurityRoleRightEdit                              SecurityRoleRight = "Edit"
+	SecurityRoleRightEditSecurity                      SecurityRoleRight = "EditSecurity"
+	SecurityRoleRightPasswordHistory                   SecurityRoleRight = "PasswordHistory"
+	SecurityRoleRightEntryHistory                      SecurityRoleRight = "EntryHistory"
+	SecurityRoleRightRemoteTools                       SecurityRoleRight = "RemoteTools"
+	SecurityRoleRightAttachment                        SecurityRoleRight = "Attachment"
+	SecurityRoleRightEditAttachment                    SecurityRoleRight = "EditAttachment"
+	SecurityRoleRightInventory                         SecurityRoleRight = "Inventory"
+	SecurityRoleRightDocumentation                     SecurityRoleRight = "Documentation"
+	SecurityRoleRightEditDocumentation                 SecurityRoleRight = "EditDocumentation"
+	SecurityRoleRightWebManagementTools                SecurityRoleRight = "WebManagementTools"
+	SecurityRoleRightConsoleManagementTools            SecurityRoleRight = "ConsoleManagementTools"
+	SecurityRoleRightMacroScriptTools                  SecurityRoleRight = "MacroScriptTools"
+	SecurityRoleRightMacroScriptToolsEntry             SecurityRoleRight = "MacroScriptToolsEntry"
+	SecurityRoleRightExecute                           SecurityRoleRight = "Execute"
+	SecurityRoleRightEditInformation                   SecurityRoleRight = "EditInformation"
+	SecurityRoleRightMove                              SecurityRoleRight = "Move"
+	SecurityRoleRightDeleteDocumentation               SecurityRoleRight = "DeleteDocumentation"
+	SecurityRoleRightViewSensitiveInformation          SecurityRoleRight = "ViewSensitiveInformation"
+	SecurityRoleRightResetPassword                     SecurityRoleRight = "ResetPassword"
+	SecurityRoleRightForceCheckin                      SecurityRoleRight = "ForceCheckin"
+	SecurityRoleRightCheckout                          SecurityRoleRight = "Checkout"
+	SecurityRoleRightReadLogs                          SecurityRoleRight = "ReadLogs"
+	SecurityRoleRightEditSessionRecordingConfiguration SecurityRoleRight = "EditSessionRecordingConfiguration"
+	SecurityRoleRightEditStatus                        SecurityRoleRight = "EditStatus"
+	SecurityRoleRightEditDescription                   SecurityRoleRight = "EditDescription"
+	SecurityRoleRightViewLogs                          SecurityRoleRight = "ViewLogs"
+	SecurityRoleRightEditPassword                      SecurityRoleRight = "EditPassword"
+	SecurityRoleRightViewSessionRecording              SecurityRoleRight = "ViewSessionRecording"
+	SecurityRoleRightViewInformation                   SecurityRoleRight = "ViewInformation"
+	SecurityRoleRightExport                            SecurityRoleRight = "Export"
+	SecurityRoleRightApproveCheckoutRequest            SecurityRoleRight = "ApproveCheckoutRequest"
+	SecurityRoleRightEditVPNSSHGatewayConfiguration    SecurityRoleRight = "EditVpnSshGatewayConfiguration"
+)
+
+// EntryPermission represents who holds a single right on an entry or folder. Roles contains the ids of the users,
+// user groups and application identities the right names.
 type EntryPermission struct {
-	Override SecurityRoleOverride `json:"override"`
+	Override SecurityRoleOverride `json:"mode"`
 	Right    SecurityRoleRight    `json:"right"`
-	Roles    []string             `json:"roles"`
+	Roles    []string             `json:"assigneeIds,omitempty"`
 }
 
-// EntrySecurity represents the permission block of an entry or folder.
-// The View right is not part of Permissions: it is controlled by ViewOverride
-// and ViewRoles. When RoleOverride is not Custom or CustomInherited, the
-// server forces ViewOverride to RoleOverride and clears ViewRoles, so a Get
-// following a Set can return normalized values.
+// EntrySecurity represents the permissions an entry or folder sets, as stored. RoleOverride is the permission mode
+// of the entry; Permissions sets rights one by one, the View right included, each right at most once. A right that
+// is not listed takes its default.
 type EntrySecurity struct {
-	RoleOverride SecurityRoleOverride `json:"roleOverride"`
-	ViewOverride SecurityRoleOverride `json:"viewOverride"`
-	ViewRoles    []string             `json:"viewRoles"`
+	RoleOverride SecurityRoleOverride `json:"mode"`
 	Permissions  []EntryPermission    `json:"permissions"`
 }
 
-// Get returns the EntrySecurity of the entry or folder specified by entryId.
+// Get returns the EntrySecurity of the entry or folder specified by vaultId and entryId.
 // Returns ErrEntryNotFound if no entry is found.
-func (c *EntryPermissionsService) Get(entryId string) (EntrySecurity, error) {
-	return c.GetWithContext(context.Background(), entryId)
+func (c *EntryPermissionsService) Get(vaultId string, entryId string) (EntrySecurity, error) {
+	return c.GetWithContext(context.Background(), vaultId, entryId)
 }
 
-// GetWithContext returns the EntrySecurity of the entry or folder specified by entryId.
+// GetWithContext returns the EntrySecurity of the entry or folder specified by vaultId and entryId.
 // Returns ErrEntryNotFound if no entry is found.
 // The provided context can be used to cancel the request.
-func (c *EntryPermissionsService) GetWithContext(ctx context.Context, entryId string) (EntrySecurity, error) {
-	if entryId == "" {
-		return EntrySecurity{}, fmt.Errorf("entry id is required")
-	}
-
-	connectionJson, err := c.getPartialConnection(ctx, entryId)
+func (c *EntryPermissionsService) GetWithContext(ctx context.Context, vaultId string, entryId string) (EntrySecurity, error) {
+	reqUrl, err := c.permissionUrl(vaultId, entryId)
 	if err != nil {
 		return EntrySecurity{}, err
 	}
 
-	var connection struct {
-		Security json.RawMessage `json:"security"`
-	}
-	err = json.Unmarshal(connectionJson, &connection)
-	if err != nil {
-		return EntrySecurity{}, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	if !jsonValuePresent(connection.Security) {
-		return EntrySecurity{}, nil
-	}
-
 	var security EntrySecurity
-	err = json.Unmarshal(connection.Security, &security)
+	err = c.client.getJSON(ctx, reqUrl, &security)
 	if err != nil {
-		return EntrySecurity{}, fmt.Errorf("failed to unmarshal response body: %w", err)
+		if IsNotFound(err) {
+			return EntrySecurity{}, ErrEntryNotFound
+		}
+
+		return EntrySecurity{}, fmt.Errorf("error while fetching entry permissions: %w", err)
 	}
 
 	return security, nil
 }
 
-// Set replaces the permission block (RoleOverride, ViewOverride, ViewRoles and
-// Permissions) of the entry or folder specified by entryId. Every other entry
-// field and security setting is preserved.
-// Set fetches the entry and saves it back in two requests; a concurrent
-// modification of the entry between the two requests is overwritten.
-func (c *EntryPermissionsService) Set(entryId string, security EntrySecurity) error {
-	return c.SetWithContext(context.Background(), entryId, security)
+// Set replaces the permissions of the entry or folder specified by vaultId and entryId. The zero EntrySecurity
+// (mode Default, no permissions) resets the entry to its defaults.
+// Returns ErrEntryNotFound if no entry is found.
+func (c *EntryPermissionsService) Set(vaultId string, entryId string, security EntrySecurity) error {
+	return c.SetWithContext(context.Background(), vaultId, entryId, security)
 }
 
-// SetWithContext replaces the permission block (RoleOverride, ViewOverride, ViewRoles and
-// Permissions) of the entry or folder specified by entryId. Every other entry
-// field and security setting is preserved.
-// SetWithContext fetches the entry and saves it back in two requests; a concurrent
-// modification of the entry between the two requests is overwritten.
+// SetWithContext replaces the permissions of the entry or folder specified by vaultId and entryId. The zero
+// EntrySecurity (mode Default, no permissions) resets the entry to its defaults.
+// Returns ErrEntryNotFound if no entry is found.
 // The provided context can be used to cancel the request.
-func (c *EntryPermissionsService) SetWithContext(ctx context.Context, entryId string, security EntrySecurity) error {
-	err := validateEntrySecurity(entryId, security)
+func (c *EntryPermissionsService) SetWithContext(ctx context.Context, vaultId string, entryId string, security EntrySecurity) error {
+	reqUrl, err := c.permissionUrl(vaultId, entryId)
 	if err != nil {
 		return err
 	}
 
-	connectionJson, err := c.getPartialConnection(ctx, entryId)
-	if err != nil {
-		return err
+	if security.RoleOverride == "" {
+		security.RoleOverride = SecurityRoleOverrideDefault
+	}
+	if security.Permissions == nil {
+		security.Permissions = []EntryPermission{}
 	}
 
-	connection := map[string]json.RawMessage{}
-	err = json.Unmarshal(connectionJson, &connection)
+	err = c.client.sendJSON(ctx, http.MethodPut, reqUrl, security, nil)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-	if connection == nil {
-		return fmt.Errorf("response data is null")
-	}
-
-	securityNode := map[string]json.RawMessage{}
-	if existing, ok := connection["security"]; ok && jsonValuePresent(existing) {
-		err = json.Unmarshal(existing, &securityNode)
-		if err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
+		if IsNotFound(err) {
+			return ErrEntryNotFound
 		}
-	}
 
-	err = setSecurityPermissionFields(securityNode, security)
-	if err != nil {
-		return err
-	}
-
-	securityJson, err := json.Marshal(securityNode)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-	connection["security"] = securityJson
-
-	err = fixupFolderGroup(connection)
-	if err != nil {
-		return err
-	}
-
-	saveJson, err := json.Marshal(connection)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
-	if err != nil {
-		return fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(saveJson))
-	if err != nil {
 		return fmt.Errorf("error while saving entry permissions: %w", err)
 	}
 
-	return resp.CheckRespSaveResult()
-}
-
-// getPartialConnection fetches the raw partial connection JSON. The save
-// endpoint overwrites the whole entry, so every field must be preserved byte
-// for byte; never decode the connection into a typed struct before saving.
-func (c *EntryPermissionsService) getPartialConnection(ctx context.Context, entryId string) (json.RawMessage, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
-	if err != nil {
-		return nil, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
-	if err != nil {
-		if IsNotFound(err) {
-			return nil, ErrEntryNotFound
-		}
-
-		return nil, fmt.Errorf("error while fetching entry: %w", err)
-	}
-
-	if SaveResult(resp.Result) == SaveResultNotFound {
-		return nil, ErrEntryNotFound
-	}
-	if err = resp.CheckRespSaveResult(); err != nil {
-		return nil, err
-	}
-
-	var envelope struct {
-		Data json.RawMessage `json:"data"`
-	}
-	err = json.Unmarshal(resp.Response, &envelope)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	return envelope.Data, nil
-}
-
-func validateEntrySecurity(entryId string, security EntrySecurity) error {
-	if entryId == "" {
-		return fmt.Errorf("entry id is required")
-	}
-
-	seen := map[SecurityRoleRight]struct{}{}
-	for _, permission := range security.Permissions {
-		if permission.Right == SecurityRoleRightView {
-			return fmt.Errorf("the View right cannot be set through Permissions, use ViewOverride and ViewRoles")
-		}
-
-		if _, ok := seen[permission.Right]; ok {
-			return fmt.Errorf("duplicate permission right %s", permission.Right)
-		}
-		seen[permission.Right] = struct{}{}
-	}
-
-	customOverride := security.RoleOverride == SecurityRoleOverrideCustom || security.RoleOverride == SecurityRoleOverrideCustomInherited
-	if !customOverride && (len(security.Permissions) > 0 || len(security.ViewRoles) > 0) {
-		return fmt.Errorf("Permissions and ViewRoles require RoleOverride to be Custom or CustomInherited")
-	}
-
 	return nil
 }
 
-func setSecurityPermissionFields(securityNode map[string]json.RawMessage, security EntrySecurity) error {
-	normalized := security
-	if normalized.ViewRoles == nil {
-		normalized.ViewRoles = []string{}
+func (c *EntryPermissionsService) permissionUrl(vaultId string, entryId string) (string, error) {
+	if vaultId == "" || entryId == "" {
+		return "", fmt.Errorf("both entry Id and vault Id are required")
 	}
 
-	normalized.Permissions = make([]EntryPermission, len(security.Permissions))
-	copy(normalized.Permissions, security.Permissions)
-	for i := range normalized.Permissions {
-		if normalized.Permissions[i].Roles == nil {
-			normalized.Permissions[i].Roles = []string{}
-		}
-	}
-
-	normalizedJson, err := json.Marshal(normalized)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	fields := map[string]json.RawMessage{}
-	err = json.Unmarshal(normalizedJson, &fields)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	for field, value := range fields {
-		securityNode[field] = value
-	}
-
-	return nil
-}
-
-// fixupFolderGroup rewrites the group field of folders to the parent path
-// before saving. The partial connection endpoint returns a folder's group as
-// its own full path; saving it unchanged would move the folder into itself.
-func fixupFolderGroup(connection map[string]json.RawMessage) error {
-	var connectionType int
-	if raw, ok := connection["connectionType"]; ok {
-		if err := json.Unmarshal(raw, &connectionType); err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-	}
-
-	var connectionSubType string
-	if raw, ok := connection["connectionSubType"]; ok {
-		if err := json.Unmarshal(raw, &connectionSubType); err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-	}
-
-	isFolder := connectionType == int(ServerConnectionGroup) ||
-		(connectionType == int(ServerConnectionPAM) && strings.EqualFold(connectionSubType, "Group"))
-	if !isFolder {
-		return nil
-	}
-
-	var name, group string
-	if raw, ok := connection["name"]; ok {
-		if err := json.Unmarshal(raw, &name); err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-	}
-	if raw, ok := connection["group"]; ok {
-		if err := json.Unmarshal(raw, &group); err != nil {
-			return fmt.Errorf("failed to unmarshal response body: %w", err)
-		}
-	}
-
-	if group == name {
-		group = ""
-	} else {
-		group = strings.TrimSuffix(group, "\\"+name)
-	}
-	group = strings.TrimRight(group, "\\")
-
-	groupJson, err := json.Marshal(group)
-	if err != nil {
-		return fmt.Errorf("failed to marshal body: %w", err)
-	}
-	connection["group"] = groupJson
-
-	return nil
+	return entryUrl(c.client, nil, vaultId, entryId, entryPermissionPath)
 }

@@ -4,116 +4,24 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 )
 
 type EntryHostService service
 
+const entryHostType string = "Host"
+
 // EntryHost represents a host entry in DVLS
 type EntryHost struct {
-	Id                string                  `json:"id,omitempty"`
-	VaultId           string                  `json:"repositoryId"`
-	EntryName         string                  `json:"name"`
-	Description       string                  `json:"description"`
-	EntryFolderPath   string                  `json:"group"`
-	ModifiedDate      *ServerTime             `json:"modifiedDate,omitempty"`
-	ConnectionType    ServerConnectionType    `json:"connectionType"`
-	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
-	Tags              []string                `json:"keywords,omitempty"`
+	Id              string
+	VaultId         string
+	EntryName       string
+	Description     string
+	EntryFolderPath string
+	ModifiedDate    *ServerTime
+	Tags            []string
 
-	HostDetails EntryHostAuthDetails `json:"data"`
-}
-
-// MarshalJSON implements the json.Marshaler interface.
-func (e EntryHost) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		Id           string `json:"id,omitempty"`
-		RepositoryId string `json:"repositoryId"`
-		Name         string `json:"name"`
-		Description  string `json:"description"`
-		Events       struct {
-			OpenCommentPrompt                        bool `json:"openCommentPrompt"`
-			CredentialViewedPrompt                   bool `json:"credentialViewedPrompt"`
-			TicketNumberIsRequiredOnCredentialViewed bool `json:"ticketNumberIsRequiredOnCredentialViewed"`
-			TicketNumberIsRequiredOnClose            bool `json:"ticketNumberIsRequiredOnClose"`
-			CredentialViewedCommentIsRequired        bool `json:"credentialViewedCommentIsRequired"`
-			TicketNumberIsRequiredOnOpen             bool `json:"ticketNumberIsRequiredOnOpen"`
-			CloseCommentIsRequired                   bool `json:"closeCommentIsRequired"`
-			OpenCommentPromptOnBrowserExtensionLink  bool `json:"openCommentPromptOnBrowserExtensionLink"`
-			CloseCommentPrompt                       bool `json:"closeCommentPrompt"`
-			OpenCommentIsRequired                    bool `json:"openCommentIsRequired"`
-			WarnIfAlreadyOpened                      bool `json:"warnIfAlreadyOpened"`
-		} `json:"events"`
-		Data              string                  `json:"data"`
-		Expiration        string                  `json:"expiration"`
-		CheckOutMode      int                     `json:"checkOutMode"`
-		Group             string                  `json:"group"`
-		ConnectionType    ServerConnectionType    `json:"connectionType"`
-		ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
-		Keywords          string                  `json:"keywords"`
-	}{}
-
-	raw.Id = e.Id
-	raw.Keywords = sliceToKeywords(e.Tags)
-	raw.Description = e.Description
-	raw.RepositoryId = e.VaultId
-	raw.Group = e.EntryFolderPath
-	raw.ConnectionSubType = e.ConnectionSubType
-	raw.ConnectionType = e.ConnectionType
-	raw.Name = e.EntryName
-	sensitiveJson, err := json.Marshal(e.HostDetails)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal sensitive data: %w", err)
-	}
-
-	raw.Data = string(sensitiveJson)
-
-	entryJson, err := json.Marshal(raw)
-	if err != nil {
-		return nil, err
-	}
-
-	return entryJson, nil
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (e *EntryHost) UnmarshalJSON(d []byte) error {
-	raw := struct {
-		Id                string                  `json:"id"`
-		Description       string                  `json:"description"`
-		Name              string                  `json:"name"`
-		Group             string                  `json:"group"`
-		ModifiedDate      *ServerTime             `json:"modifiedDate"`
-		Keywords          string                  `json:"keywords"`
-		RepositoryId      string                  `json:"repositoryId"`
-		ConnectionType    ServerConnectionType    `json:"connectionType"`
-		ConnectionSubType ServerConnectionSubType `json:"connectionSubType"`
-		Data              json.RawMessage         `json:"data"`
-	}{}
-
-	err := json.Unmarshal(d, &raw)
-	if err != nil {
-		return err
-	}
-
-	e.Id = raw.Id
-	e.EntryName = raw.Name
-	e.ConnectionType = raw.ConnectionType
-	e.ConnectionSubType = raw.ConnectionSubType
-	e.ModifiedDate = raw.ModifiedDate
-	e.Description = raw.Description
-	e.EntryFolderPath = raw.Group
-	e.VaultId = raw.RepositoryId
-	e.Tags = keywordsToSlice(raw.Keywords)
-
-	if len(raw.Data) > 0 {
-		if err := json.Unmarshal(raw.Data, &e.HostDetails); err != nil {
-			return fmt.Errorf("failed to unmarshal host details: %w", err)
-		}
-	}
-
-	return nil
+	HostDetails EntryHostAuthDetails
 }
 
 // EntryHostAuthDetails represents host-specific fields
@@ -123,127 +31,74 @@ type EntryHostAuthDetails struct {
 	Host     string
 }
 
-// MarshalJSON implements the json.Marshaler interface.
-func (s EntryHostAuthDetails) MarshalJSON() ([]byte, error) {
-	raw := struct {
-		AutoFillLogin        bool   `json:"AutoFillLogin"`
-		AutoSubmit           bool   `json:"AutoSubmit"`
-		AutomaticRefreshTime int    `json:"AutomaticRefreshTime"`
-		ChromeProxyType      int    `json:"ChromeProxyType"`
-		CustomJavaScript     string `json:"CustomJavaScript"`
-		Host                 string `json:"Host"`
-		UserName             string `json:"UserName"`
-		PasswordItem         struct {
-			HasSensitiveData bool   `json:"HasSensitiveData"`
-			SensitiveData    string `json:"SensitiveData"`
-		} `json:"PasswordItem"`
-		VPN struct {
-			EnableAutoDetectIsOnlineVPN int `json:"EnableAutoDetectIsOnlineVPN"`
-		} `json:"VPN"`
-	}{}
+type entryHostData struct {
+	Host     string  `json:"host"`
+	Username string  `json:"username"`
+	Password *string `json:"password"`
+}
 
-	if s.Password != nil {
-		raw.PasswordItem.HasSensitiveData = true
-		raw.PasswordItem.SensitiveData = *s.Password
-	} else {
-		raw.PasswordItem.HasSensitiveData = false
+func hostFromRaw(raw rawEntry) (EntryHost, error) {
+	if raw.Type != entryHostType {
+		return EntryHost{}, ErrUnsupportedEntryType{Type: raw.Type, SubType: raw.SubType}
 	}
 
-	raw.UserName = s.Username
-	raw.Host = s.Host
+	var data entryHostData
+	if len(raw.Data) > 0 {
+		err := json.Unmarshal(raw.Data, &data)
+		if err != nil {
+			return EntryHost{}, fmt.Errorf("failed to unmarshal host details: %w", err)
+		}
+	}
 
-	secretJson, err := json.Marshal(raw)
+	return EntryHost{
+		Id:              raw.Id,
+		VaultId:         raw.VaultId,
+		EntryName:       raw.Name,
+		Description:     raw.Description,
+		EntryFolderPath: raw.Path,
+		ModifiedDate:    raw.ModifiedOn,
+		Tags:            raw.Tags,
+		HostDetails:     EntryHostAuthDetails{Username: data.Username, Password: data.Password, Host: data.Host},
+	}, nil
+}
+
+// Get returns a single host entry, without its password, specified by vaultId and entryId. Call GetHostDetails with
+// the returned entry to fetch the password.
+func (s *EntryHostService) Get(vaultId string, entryId string) (EntryHost, error) {
+	return s.GetWithContext(context.Background(), vaultId, entryId)
+}
+
+// GetWithContext returns a single host entry, without its password, specified by vaultId and entryId. Call
+// GetHostDetailsWithContext with the returned entry to fetch the password.
+// The provided context can be used to cancel the request.
+func (s *EntryHostService) GetWithContext(ctx context.Context, vaultId string, entryId string) (EntryHost, error) {
+	raw, err := s.client.getRawEntry(ctx, vaultId, entryId, url.Values{"includePasswords": {"false"}})
 	if err != nil {
-		return nil, err
+		return EntryHost{}, err
 	}
 
-	return secretJson, nil
+	return hostFromRaw(raw)
 }
 
 // GetHostDetails returns entry with the entry.HostDetails.Password field.
-func (c *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
-	return c.GetHostDetailsWithContext(context.Background(), entry)
+func (s *EntryHostService) GetHostDetails(entry EntryHost) (EntryHost, error) {
+	return s.GetHostDetailsWithContext(context.Background(), entry)
 }
 
 // GetHostDetailsWithContext returns entry with the entry.HostDetails.Password field.
 // The provided context can be used to cancel the request.
-func (c *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry EntryHost) (EntryHost, error) {
-	var respData struct {
-		Data string `json:"data"`
-	}
-
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
+func (s *EntryHostService) GetHostDetailsWithContext(ctx context.Context, entry EntryHost) (EntryHost, error) {
+	raw, err := s.client.getRawEntry(ctx, entry.VaultId, entry.Id, nil)
 	if err != nil {
-		return EntryHost{}, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
-	if err != nil {
-		return EntryHost{}, fmt.Errorf("error while fetching sensitive data: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryHost{}, err
 	}
 
-	if err := json.Unmarshal(resp.Response, &respData); err != nil {
-		return EntryHost{}, fmt.Errorf("failed to unmarshal response body: %w", err)
+	stored, err := hostFromRaw(raw)
+	if err != nil {
+		return EntryHost{}, err
 	}
 
-	var sensitiveDataResponse struct {
-		Data struct {
-			PasswordItem struct {
-				HasSensitiveData bool    `json:"hasSensitiveData"`
-				SensitiveData    *string `json:"sensitiveData,omitempty"`
-			} `json:"passwordItem"`
-		} `json:"data"`
-	}
-
-	if err := json.Unmarshal([]byte(respData.Data), &sensitiveDataResponse); err != nil {
-		return EntryHost{}, fmt.Errorf("failed to unmarshal inner data: %w", err)
-	}
-
-	if sensitiveDataResponse.Data.PasswordItem.HasSensitiveData {
-		entry.HostDetails.Password = sensitiveDataResponse.Data.PasswordItem.SensitiveData
-	} else {
-		entry.HostDetails.Password = nil
-	}
+	entry.HostDetails.Password = stored.HostDetails.Password
 
 	return entry, nil
-}
-
-// Get returns a single Entry specified by entryId. Call GetHostDetails with
-// the returned Entry to fetch the password.
-func (s *EntryHostService) Get(entryId string) (EntryHost, error) {
-	return s.GetWithContext(context.Background(), entryId)
-}
-
-// GetWithContext returns a single Entry specified by entryId. Call GetHostDetailsWithContext with
-// the returned Entry to fetch the password.
-// The provided context can be used to cancel the request.
-func (s *EntryHostService) GetWithContext(ctx context.Context, entryId string) (EntryHost, error) {
-	var respData struct {
-		Data EntryHost `json:"data"`
-	}
-
-	reqUrl, err := url.JoinPath(s.client.baseUri, entryEndpoint, entryId)
-	if err != nil {
-		return EntryHost{}, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := s.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
-	if err != nil {
-		return EntryHost{}, fmt.Errorf("error fetching entry: %w", err)
-	}
-
-	if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryHost{}, err
-	}
-	if resp.Response == nil {
-		return EntryHost{}, fmt.Errorf("response body is nil for request to %s", reqUrl)
-	}
-
-	if err := json.Unmarshal(resp.Response, &respData); err != nil {
-		return EntryHost{}, fmt.Errorf("failed to unmarshal response: %w", err)
-	}
-
-	return respData.Data, nil
 }

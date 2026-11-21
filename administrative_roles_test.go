@@ -9,23 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// requireRoleAssignmentSupport skips the test when the server does not expose
-// the administrative role endpoints (DVLS 2026.3+), and returns the roles
-// fetched by the probe.
-func requireRoleAssignmentSupport(t *testing.T) []AdministrativeRole {
-	t.Helper()
-
-	roles, err := testClient.AdministrativeRoles.List()
-	if IsNotFound(err) {
-		t.Skip("administrative roles require DVLS 2026.3 or later")
-	}
-	require.NoError(t, err)
-
-	return roles
-}
-
 func Test_AdministrativeRoles(t *testing.T) {
-	roles := requireRoleAssignmentSupport(t)
+	roles, err := testClient.AdministrativeRoles.List()
+	require.NoError(t, err)
 	require.NotEmpty(t, roles)
 
 	var vaultUser AdministrativeRole
@@ -34,10 +20,10 @@ func Test_AdministrativeRoles(t *testing.T) {
 			vaultUser = role
 		}
 	}
-	require.NotEmpty(t, vaultUser.Id, "expected built-in Vault User role in list")
+	require.NotEmpty(t, vaultUser.Id, "expected built-in Vault member role in list")
 	assert.True(t, vaultUser.IsBuiltIn)
-	assert.Contains(t, vaultUser.Permissions, AdministrativePermissionRepositoriesContentView)
-	assert.Contains(t, vaultUser.SupportedScopes, AdministrativeRoleScopeVault)
+	assert.Contains(t, vaultUser.Permissions, AdministrativePermission("VaultsContentView"))
+	assert.Contains(t, vaultUser.AssignableScopes, AdministrativeRoleScopeVault)
 
 	fetched, err := testClient.AdministrativeRoles.Get(BuiltinRoleVaultUserId)
 	require.NoError(t, err)
@@ -55,64 +41,50 @@ func Test_AdministrativeRoles(t *testing.T) {
 }
 
 func Test_AdministrativeRoleAssignments(t *testing.T) {
-	requireRoleAssignmentSupport(t)
-
 	vault := createTestVault(t, "role-assignments")
 
-	admins, err := testClient.AdministrativeRoleAssignments.GetMembers(BuiltinRoleBuiltinAdministratorId, AdministrativeRoleScopeGlobal, "")
-	require.NoError(t, err)
-	require.NotEmpty(t, admins, "expected at least one Built-in administrator member")
-	assigneeId := admins[0].AssigneeId
-
-	scopeResourceId := vault.Id
-	err = testClient.AdministrativeRoleAssignments.AddMember(AdministrativeRoleMemberRequest{
-		AdministrativeRoleId: BuiltinRoleVaultUserId,
-		AssigneeId:           assigneeId,
-		ScopeType:            AdministrativeRoleScopeVault,
-		ScopeResourceId:      &scopeResourceId,
+	owners, err := testClient.AdministrativeRoleAssignments.List(AdministrativeRoleAssignmentFilter{
+		RoleId:    BuiltinRoleBuiltinAdministratorId,
+		ScopeType: AdministrativeRoleScopeWorkspace,
 	})
 	require.NoError(t, err)
+	require.NotEmpty(t, owners, "expected at least one workspace owner")
 
-	t.Cleanup(func() {
-		testClient.AdministrativeRoleAssignments.DeleteScope(BuiltinRoleVaultUserId, AdministrativeRoleScopeVault, vault.Id)
-	})
-
-	members, err := testClient.AdministrativeRoleAssignments.GetMembers(BuiltinRoleVaultUserId, AdministrativeRoleScopeVault, vault.Id)
+	groups, err := testClient.UserGroups.List()
 	require.NoError(t, err)
-	var foundMember bool
-	for _, member := range members {
-		if member.AssigneeId == assigneeId {
-			foundMember = true
-		}
-	}
-	assert.True(t, foundMember, "expected the assignee in the Vault User members")
+	require.NotEmpty(t, groups)
+	assigneeId := groups[0].Id
 
-	scopeType := AdministrativeRoleScopeVault
+	created, err := testClient.AdministrativeRoleAssignments.New(AdministrativeRoleAssignmentRequest{
+		RoleId:     BuiltinRoleVaultUserId,
+		AssigneeId: assigneeId,
+		ScopeType:  AdministrativeRoleScopeVault,
+		ScopeId:    vault.Id,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = testClient.AdministrativeRoleAssignments.Delete(created.Id) })
+	assert.Equal(t, AdministrativeRoleAssigneeUserGroup, created.AssigneeType)
+	assert.Equal(t, vault.Id, created.ScopeId)
+
+	fetched, err := testClient.AdministrativeRoleAssignments.Get(created.Id)
+	require.NoError(t, err)
+	assert.Equal(t, created, fetched)
+
 	assignments, err := testClient.AdministrativeRoleAssignments.List(AdministrativeRoleAssignmentFilter{
 		RoleId:    BuiltinRoleVaultUserId,
-		ScopeType: &scopeType,
+		ScopeType: AdministrativeRoleScopeVault,
 		ScopeId:   vault.Id,
 	})
 	require.NoError(t, err)
-	require.Len(t, assignments, 1)
-	assert.Equal(t, BuiltinRoleVaultUserId, assignments[0].AdministrativeRoleId)
-	assert.Equal(t, vault.Id, assignments[0].ScopeResourceId)
-	assert.True(t, assignments[0].IsBuiltIn)
+	assert.Contains(t, assignments, created)
 
-	byAssignee, err := testClient.AdministrativeRoleAssignments.ListByAssignee(assigneeId, false)
+	byAssignee, err := testClient.AdministrativeRoleAssignments.List(AdministrativeRoleAssignmentFilter{AssigneeId: assigneeId})
 	require.NoError(t, err)
-	var foundAssignment bool
-	for _, assignment := range byAssignee {
-		if assignment.AdministrativeRoleId == BuiltinRoleVaultUserId && assignment.ScopeResourceId == vault.Id {
-			foundAssignment = true
-		}
-	}
-	assert.True(t, foundAssignment, "expected the created assignment in the assignee's assignments")
+	assert.Contains(t, byAssignee, created)
 
-	err = testClient.AdministrativeRoleAssignments.DeleteScope(BuiltinRoleVaultUserId, AdministrativeRoleScopeVault, vault.Id)
+	err = testClient.AdministrativeRoleAssignments.Delete(created.Id)
 	require.NoError(t, err)
 
-	members, err = testClient.AdministrativeRoleAssignments.GetMembers(BuiltinRoleVaultUserId, AdministrativeRoleScopeVault, vault.Id)
-	require.NoError(t, err)
-	assert.Empty(t, members)
+	_, err = testClient.AdministrativeRoleAssignments.Get(created.Id)
+	assert.True(t, IsNotFound(err))
 }

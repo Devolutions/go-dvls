@@ -8,94 +8,99 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUsersList(t *testing.T) {
+const (
+	testUserJSON        = `{"id":"` + testUserID + `","username":"jdoe","fullName":"John Doe","email":"j@x","identityProvider":"EntraId","isEnabled":true,"isWorkspaceOwner":false}`
+	testApplicationJSON = `{"id":"` + testAssigneeID + `","name":"ci","appKey":"ci","isEnabled":true,"isWorkspaceOwner":true}`
+)
+
+func TestUsersListAndGet(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/security/users/list", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
+	mux.HandleFunc("/api/v2/user", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"` + testUserID + `","name":"admin","fullName":"Admin User","email":"admin@example.com","authenticationType":0,"isAdministrator":true,"isEnabled":true,"userGroups":["Ops"]},
-			{"id":"` + testAssigneeID + `","name":"jdoe","fullName":"John Doe","authenticationType":8,"isEnabled":true}
-		]}`))
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[` + testUserJSON + `]}`))
+	})
+	mux.HandleFunc("/api/v2/user/"+testUserID, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(testUserJSON))
 	})
 
 	client := newTestClient(t, mux)
+
+	want := User{Id: testUserID, Name: "jdoe", FullName: "John Doe", Email: "j@x", IdentityProvider: IdentityProviderEntraId, IsEnabled: true}
 
 	users, err := client.Users.List()
 	require.NoError(t, err)
-	require.Len(t, users, 2)
-	assert.Equal(t, testUserID, users[0].Id)
-	assert.Equal(t, "admin", users[0].Name)
-	assert.Equal(t, UserAuthenticationBuiltin, users[0].AuthenticationType)
-	assert.True(t, users[0].IsAdministrator)
-	assert.Equal(t, []string{"Ops"}, users[0].UserGroups)
-	assert.Equal(t, UserAuthenticationAzureAD, users[1].AuthenticationType)
-}
+	assert.Equal(t, []User{want}, users)
 
-func TestUsersList_ResultError(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/security/users/list", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":2,"message":"AccessDenied"}`))
-	})
-
-	client := newTestClient(t, mux)
-
-	_, err := client.Users.List()
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), "AccessDenied")
+	user, err := client.Users.Get(testUserID)
+	require.NoError(t, err)
+	assert.Equal(t, want, user)
 }
 
 func TestUsersGetByName(t *testing.T) {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/api/security/users/list", func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"` + testUserID + `","name":"admin"},
-			{"id":"` + testAssigneeID + `","name":"dup"},
-			{"id":"` + testRoleID + `","name":"dup"}
-		]}`))
-	})
+	tests := []struct {
+		name      string
+		data      string
+		wantError error
+	}{
+		{name: "Found", data: testUserJSON},
+		{name: "NotFound", data: "", wantError: ErrUserNotFound},
+	}
 
-	client := newTestClient(t, mux)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc("/api/v2/user", func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "jdoe", r.URL.Query().Get("username"))
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[` + tt.data + `]}`))
+			})
 
-	user, err := client.Users.GetByName("admin")
-	require.NoError(t, err)
-	assert.Equal(t, testUserID, user.Id)
+			client := newTestClient(t, mux)
 
-	_, err = client.Users.GetByName("dup")
-	assert.ErrorIs(t, err, ErrMultipleUsersFound)
-
-	_, err = client.Users.GetByName("nobody")
-	assert.ErrorIs(t, err, ErrUserNotFound)
+			user, err := client.Users.GetByName("jdoe")
+			if tt.wantError != nil {
+				assert.ErrorIs(t, err, tt.wantError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, testUserID, user.Id)
+		})
+	}
 }
 
 func TestUsersApplications(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/security/application/users/list", func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodGet {
-			t.Errorf("expected GET, got %s", r.Method)
-		}
+	mux.HandleFunc("/api/v2/application-identity", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"result":1,"data":[
-			{"id":"` + testAssigneeID + `","name":"my-app-key","fullName":"CI","authenticationType":9,"isEnabled":true}
-		]}`))
+		if r.URL.Query().Has("name") {
+			assert.Equal(t, "ci", r.URL.Query().Get("name"))
+		}
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[` + testApplicationJSON + `]}`))
+	})
+	mux.HandleFunc("/api/v2/application-identity/"+testAssigneeID, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(testApplicationJSON))
 	})
 
 	client := newTestClient(t, mux)
 
+	want := ApplicationIdentity{Id: testAssigneeID, Name: "ci", AppKey: "ci", IsEnabled: true, IsWorkspaceOwner: true}
+
 	apps, err := client.Users.ListApplications()
 	require.NoError(t, err)
-	require.Len(t, apps, 1)
-	assert.Equal(t, testAssigneeID, apps[0].Id)
-	assert.Equal(t, UserAuthenticationApplication, apps[0].AuthenticationType)
+	assert.Equal(t, []ApplicationIdentity{want}, apps)
 
-	app, err := client.Users.GetApplicationByName("my-app-key")
+	app, err := client.Users.GetApplication(testAssigneeID)
 	require.NoError(t, err)
-	assert.Equal(t, testAssigneeID, app.Id)
+	assert.Equal(t, want, app)
 
-	_, err = client.Users.GetApplicationByName("missing")
-	assert.ErrorIs(t, err, ErrUserNotFound)
+	app, err = client.Users.GetApplicationByName("ci")
+	require.NoError(t, err)
+	assert.Equal(t, want, app)
 }

@@ -1,187 +1,133 @@
 package dvls
 
 import (
-	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
-	"time"
 )
 
 type EntryCertificateService service
 
-// EntryCertificate represents a certificate entry.
+const (
+	entryDocumentType           string = "Document"
+	entryCertificateSubType     string = "Certificate"
+	entryCertificateContentPath string = "content"
+)
+
+type EntryCertificateDataMode string
+
+const (
+	EntryCertificateDataModeURL  EntryCertificateDataMode = "Url"
+	EntryCertificateDataModeFile EntryCertificateDataMode = "File"
+)
+
+// EntryCertificate represents a certificate entry (type Document, subtype Certificate).
 type EntryCertificate struct {
-	Id                    string
-	VaultId               string
-	Name                  string
-	Description           string
-	EntryFolderPath       string
-	Tags                  []string
-	Expiration            time.Time
-	Password              string
-	UseDefaultCredentials bool
+	Id              string
+	VaultId         string
+	Name            string
+	Description     string
+	EntryFolderPath string
+	Tags            []string
+	Password        string
 
 	// Can either be a URL or a file name.
 	CertificateIdentifier string
 
-	data entryCertificateData
-}
-
-type rawEntryCertificate struct {
-	Id              string      `json:"id,omitempty"`
-	VaultId         string      `json:"repositoryId"`
-	Name            string      `json:"name"`
-	Description     string      `json:"description"`
-	EntryFolderPath string      `json:"group"`
-	ModifiedDate    *ServerTime `json:"modifiedDate,omitempty"`
-	Tags            string      `json:"keywords,omitempty"`
-	Expiration      time.Time   `json:"expiration,omitempty"`
-
-	ConnectionType    ServerConnectionType    `json:"connectionType"`    // 45 - document
-	ConnectionSubType ServerConnectionSubType `json:"connectionSubType"` // "Certificate"
-
-	Data entryCertificateData `json:"data"`
+	mode EntryCertificateDataMode
 }
 
 type entryCertificateData struct {
-	Mode                  int    `json:"dataMode"`     // 3 - URL, 2 - File
-	FileSize              int    `json:"documentSize"` // 0 on mode 3
-	FileName              string `json:"fileName"`
-	Type                  any    `json:"type"` // "Certificate"
-	UseDefaultCredentials bool   `json:"useWebDefaultCredentials"`
-	Password              struct {
-		HasSensitiveData bool   `json:"hasSensitiveData"`
-		SensitiveData    string `json:"sensitiveData"`
-	} `json:"password"`
+	DataMode    EntryCertificateDataMode `json:"dataMode"`
+	Url         string                   `json:"url,omitempty"`
+	FileName    string                   `json:"fileName,omitempty"`
+	FileContent string                   `json:"fileContent,omitempty"`
+	Password    string                   `json:"password,omitempty"`
 }
 
-// MarshalJSON implements the json.Marshaler interface.
-func (e EntryCertificate) MarshalJSON() ([]byte, error) {
-	raw := rawEntryCertificate{
-		Id:              e.Id,
-		VaultId:         e.VaultId,
-		Name:            e.Name,
-		Description:     e.Description,
-		EntryFolderPath: e.EntryFolderPath,
-		Tags:            sliceToKeywords(e.Tags),
-		Expiration:      e.Expiration,
-		Data: entryCertificateData{
-			Mode:                  e.data.Mode,
-			FileName:              e.CertificateIdentifier,
-			Type:                  "Certificate",
-			UseDefaultCredentials: e.UseDefaultCredentials,
-			FileSize:              e.data.FileSize,
-			Password: struct {
-				HasSensitiveData bool   `json:"hasSensitiveData"`
-				SensitiveData    string `json:"sensitiveData"`
-			}{
-				HasSensitiveData: true,
-				SensitiveData:    e.Password,
-			},
-		},
+func certificateFromRaw(raw rawEntry) (EntryCertificate, error) {
+	if raw.Type != entryDocumentType || raw.SubType != entryCertificateSubType {
+		return EntryCertificate{}, ErrUnsupportedEntryType{Type: raw.Type, SubType: raw.SubType}
 	}
 
-	raw.ConnectionType = ServerConnectionDocument
-	raw.ConnectionSubType = ServerConnectionSubTypeCertificate
+	var data entryCertificateData
+	if len(raw.Data) > 0 {
+		err := json.Unmarshal(raw.Data, &data)
+		if err != nil {
+			return EntryCertificate{}, fmt.Errorf("failed to unmarshal certificate data: %w", err)
+		}
+	}
 
-	entryJson, err := json.Marshal(raw)
+	identifier := data.Url
+	if data.DataMode == EntryCertificateDataModeFile {
+		identifier = data.FileName
+	}
+
+	return EntryCertificate{
+		Id:                    raw.Id,
+		VaultId:               raw.VaultId,
+		Name:                  raw.Name,
+		Description:           raw.Description,
+		EntryFolderPath:       raw.Path,
+		Tags:                  raw.Tags,
+		Password:              data.Password,
+		CertificateIdentifier: identifier,
+		mode:                  data.DataMode,
+	}, nil
+}
+
+func (e EntryCertificate) data(mode EntryCertificateDataMode, content []byte) entryCertificateData {
+	data := entryCertificateData{DataMode: mode, Password: e.Password}
+	if mode == EntryCertificateDataModeFile {
+		data.FileName = e.CertificateIdentifier
+	} else {
+		data.Url = e.CertificateIdentifier
+	}
+
+	if content != nil {
+		data.FileContent = base64.StdEncoding.EncodeToString(content)
+	}
+
+	return data
+}
+
+// Get returns a single Certificate, its password included, specified by vaultId and entryId.
+func (c *EntryCertificateService) Get(vaultId string, entryId string) (EntryCertificate, error) {
+	return c.GetWithContext(context.Background(), vaultId, entryId)
+}
+
+// GetWithContext returns a single Certificate, its password included, specified by vaultId and entryId.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) GetWithContext(ctx context.Context, vaultId string, entryId string) (EntryCertificate, error) {
+	raw, err := c.client.getRawEntry(ctx, vaultId, entryId, nil)
+	if err != nil {
+		return EntryCertificate{}, err
+	}
+
+	return certificateFromRaw(raw)
+}
+
+// GetFileContent returns the content of the file of a certificate kept in file mode, specified by vaultId and entryId.
+func (c *EntryCertificateService) GetFileContent(vaultId string, entryId string) ([]byte, error) {
+	return c.GetFileContentWithContext(context.Background(), vaultId, entryId)
+}
+
+// GetFileContentWithContext returns the content of the file of a certificate kept in file mode, specified by vaultId
+// and entryId.
+// The provided context can be used to cancel the request.
+func (c *EntryCertificateService) GetFileContentWithContext(ctx context.Context, vaultId string, entryId string) ([]byte, error) {
+	if vaultId == "" || entryId == "" {
+		return nil, fmt.Errorf("both entry Id and vault Id are required")
+	}
+
+	reqUrl, err := entryUrl(c.client, nil, vaultId, entryId, entryCertificateContentPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return entryJson, nil
-}
-
-// UnmarshalJSON implements the json.Unmarshaler interface.
-func (e *EntryCertificate) UnmarshalJSON(d []byte) error {
-	rawString := struct {
-		Data string
-	}{}
-	err := json.Unmarshal(d, &rawString)
-	if err != nil && !strings.Contains(err.Error(), "cannot unmarshal object into Go struct") {
-		return err
-	}
-
-	raw := struct {
-		Data rawEntryCertificate
-	}{}
-
-	if rawString.Data != "" {
-		err = json.Unmarshal([]byte(rawString.Data), &raw.Data)
-		if err != nil {
-			return err
-		}
-	} else {
-		err = json.Unmarshal(d, &raw)
-		if err != nil {
-			return err
-		}
-	}
-
-	e.Id = raw.Data.Id
-	e.VaultId = raw.Data.VaultId
-	e.Name = raw.Data.Name
-	e.Description = raw.Data.Description
-	e.EntryFolderPath = raw.Data.EntryFolderPath
-	e.Tags = keywordsToSlice(raw.Data.Tags)
-	e.Expiration = raw.Data.Expiration
-
-	e.data.Mode = raw.Data.Data.Mode
-	e.CertificateIdentifier = raw.Data.Data.FileName
-	e.UseDefaultCredentials = raw.Data.Data.UseDefaultCredentials
-	e.Password = raw.Data.Data.Password.SensitiveData
-	e.data.FileSize = raw.Data.Data.FileSize
-
-	return nil
-}
-
-// Get returns a single Certificate specified by entryId.
-func (c *EntryCertificateService) Get(entryId string) (EntryCertificate, error) {
-	return c.GetWithContext(context.Background(), entryId)
-}
-
-// GetWithContext returns a single Certificate specified by entryId.
-// The provided context can be used to cancel the request.
-func (c *EntryCertificateService) GetWithContext(ctx context.Context, entryId string) (EntryCertificate, error) {
-	var entry EntryCertificate
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
 	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching entry: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return EntryCertificate{}, err
-	}
-
-	err = json.Unmarshal(resp.Response, &entry)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	return entry, nil
-}
-
-// GetFileContent returns the content of the file specified by entryId.
-func (c *EntryCertificateService) GetFileContent(entryId string) ([]byte, error) {
-	return c.GetFileContentWithContext(context.Background(), entryId)
-}
-
-// GetFileContentWithContext returns the content of the file specified by entryId.
-// The provided context can be used to cancel the request.
-func (c *EntryCertificateService) GetFileContentWithContext(ctx context.Context, entryId string) ([]byte, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryConnectionsEndpoint, entryId, "document")
-	if err != nil {
-		return nil, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodGet, nil, RequestOptions{RawBody: true})
 	if err != nil {
 		return nil, fmt.Errorf("error while fetching entry content: %w", err)
 	}
@@ -189,176 +135,140 @@ func (c *EntryCertificateService) GetFileContentWithContext(ctx context.Context,
 	return resp.Response, nil
 }
 
-// GetPassword returns the password of the entry specified by entry.
+// GetPassword returns entry with its Password read from the server.
 func (c *EntryCertificateService) GetPassword(entry EntryCertificate) (EntryCertificate, error) {
 	return c.GetPasswordWithContext(context.Background(), entry)
 }
 
-// GetPasswordWithContext returns the password of the entry specified by entry.
+// GetPasswordWithContext returns entry with its Password read from the server.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) GetPasswordWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
-	var entryPassword EntryCertificate
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entry.Id, "/sensitive-data")
+	stored, err := c.GetWithContext(ctx, entry.VaultId, entry.Id)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, nil)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching sensitive data: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
-	err = json.Unmarshal(resp.Response, &entryPassword)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
-	}
-
-	entry.Password = entryPassword.Password
+	entry.Password = stored.Password
 
 	return entry, nil
 }
 
-// NewURL creates a new EntryCertificate based on entry. Will use the url as the file content.
+// NewURL creates a new EntryCertificate based on entry, with CertificateIdentifier as the certificate's URL.
 func (c *EntryCertificateService) NewURL(entry EntryCertificate) (EntryCertificate, error) {
 	return c.NewURLWithContext(context.Background(), entry)
 }
 
-// NewURLWithContext creates a new EntryCertificate based on entry. Will use the url as the file content.
+// NewURLWithContext creates a new EntryCertificate based on entry, with CertificateIdentifier as the certificate's URL.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) NewURLWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
-	return c.newWithContext(ctx, entry, nil)
+	return c.newWithContext(ctx, entry, EntryCertificateDataModeURL, nil)
 }
 
-// NewFile creates a new EntryCertificate based on entry. Will upload the file content to the DVLS server.
+// NewFile creates a new EntryCertificate based on entry and stores content on the DVLS server, with
+// CertificateIdentifier as the file name.
 func (c *EntryCertificateService) NewFile(entry EntryCertificate, content []byte) (EntryCertificate, error) {
 	return c.NewFileWithContext(context.Background(), entry, content)
 }
 
-// NewFileWithContext creates a new EntryCertificate based on entry. Will upload the file content to the DVLS server.
+// NewFileWithContext creates a new EntryCertificate based on entry and stores content on the DVLS server, with
+// CertificateIdentifier as the file name.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) NewFileWithContext(ctx context.Context, entry EntryCertificate, content []byte) (EntryCertificate, error) {
-	return c.newWithContext(ctx, entry, content)
+	if content == nil {
+		content = []byte{}
+	}
+
+	return c.newWithContext(ctx, entry, EntryCertificateDataModeFile, content)
 }
 
-func (c *EntryCertificateService) newWithContext(ctx context.Context, entry EntryCertificate, content []byte) (EntryCertificate, error) {
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
+func (c *EntryCertificateService) newWithContext(ctx context.Context, entry EntryCertificate, mode EntryCertificateDataMode, content []byte) (EntryCertificate, error) {
+	if entry.VaultId == "" {
+		return EntryCertificate{}, fmt.Errorf("entry must have a VaultId")
 	}
 
-	entry.data.Mode = 3
-
-	if content != nil {
-		entry.data.Mode = 2
-		entry.data.FileSize = len(content)
-	}
-
-	entryJson, err := json.Marshal(entry)
+	reqUrl, err := entryUrl(c.client, nil, entry.VaultId)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPost, bytes.NewBuffer(entryJson))
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while creating entry: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
-	err = json.Unmarshal(resp.Response, &entry)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
+	reqBody := entryCreateRequest{
+		Name:        entry.Name,
+		Description: entry.Description,
+		Path:        entry.EntryFolderPath,
+		Type:        entryDocumentType,
+		SubType:     entryCertificateSubType,
+		Tags:        entry.Tags,
+		Data:        entry.data(mode, content),
 	}
 
-	if content != nil {
-		attachment := EntryAttachment{
-			EntryId:   entry.Id,
-			FileName:  entry.CertificateIdentifier,
-			Size:      len(content),
-			IsPrivate: true,
-		}
-
-		entryAttachment, err := c.client.newAttachmentRequest(ctx, attachment)
-		if err != nil {
-			return EntryCertificate{}, fmt.Errorf("error while creating entry attachment: %w", err)
-		}
-
-		err = c.client.uploadAttachment(ctx, content, entryAttachment)
-		if err != nil {
-			return EntryCertificate{}, fmt.Errorf("error while uploading attachment: %w", err)
-		}
-	}
-
-	return entry, nil
+	return c.send(ctx, http.MethodPost, reqUrl, reqBody, entry.Password, "error while creating entry")
 }
 
-// Update updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
+// Update updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other field is
+// replaced; an empty Password keeps the stored one.
 func (c *EntryCertificateService) Update(entry EntryCertificate) (EntryCertificate, error) {
 	return c.UpdateWithContext(context.Background(), entry)
 }
 
-// UpdateWithContext updates an EntryCertificate based on entry. Will replace all other fields whether included or not.
+// UpdateWithContext updates an EntryCertificate based on entry and keeps its data mode and stored file. Every other
+// field is replaced; an empty Password keeps the stored one.
 // The provided context can be used to cancel the request.
 func (c *EntryCertificateService) UpdateWithContext(ctx context.Context, entry EntryCertificate) (EntryCertificate, error) {
-	oldEntry, err := c.GetWithContext(ctx, entry.Id)
+	oldEntry, err := c.GetWithContext(ctx, entry.VaultId, entry.Id)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while fetching entry: %w", err)
-	}
-
-	entry.data.Mode = oldEntry.data.Mode
-	entry.data.FileSize = oldEntry.data.FileSize
-
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, "save")
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to build entry url: %w", err)
-	}
-
-	entryJson, err := json.Marshal(entry)
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to marshal body: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodPut, bytes.NewBuffer(entryJson))
-	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("error while creating entry: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
 		return EntryCertificate{}, err
 	}
 
-	err = json.Unmarshal(resp.Response, &entry)
+	reqUrl, err := entryUrl(c.client, nil, entry.VaultId, entry.Id)
 	if err != nil {
-		return EntryCertificate{}, fmt.Errorf("failed to unmarshal response body: %w", err)
+		return EntryCertificate{}, err
 	}
+
+	tags := entry.Tags
+	if tags == nil {
+		tags = []string{}
+	}
+
+	reqBody := entryUpdateRequest{
+		Name:        entry.Name,
+		Description: entry.Description,
+		Path:        entry.EntryFolderPath,
+		Tags:        tags,
+		Data:        entry.data(oldEntry.mode, nil),
+	}
+
+	return c.send(ctx, http.MethodPut, reqUrl, reqBody, entry.Password, "error while updating entry")
+}
+
+// send writes a certificate and returns the server's answer, which has no password: the password sent is put back.
+func (c *EntryCertificateService) send(ctx context.Context, method string, reqUrl string, reqBody any, password string, errorPrefix string) (EntryCertificate, error) {
+	var raw rawEntry
+	err := c.client.sendJSON(ctx, method, reqUrl, reqBody, &raw)
+	if err != nil {
+		return EntryCertificate{}, fmt.Errorf("%s: %w", errorPrefix, err)
+	}
+
+	entry, err := certificateFromRaw(raw)
+	if err != nil {
+		return EntryCertificate{}, err
+	}
+	entry.Password = password
 
 	return entry, nil
 }
 
-// Delete deletes an EntryCertificate based on entryId.
-func (c *EntryCertificateService) Delete(entryId string) error {
-	return c.DeleteWithContext(context.Background(), entryId)
+// Delete deletes an EntryCertificate based on vaultId and entryId.
+func (c *EntryCertificateService) Delete(vaultId string, entryId string) error {
+	return c.DeleteWithContext(context.Background(), vaultId, entryId)
 }
 
-// DeleteWithContext deletes an EntryCertificate based on entryId.
+// DeleteWithContext deletes an EntryCertificate based on vaultId and entryId.
 // The provided context can be used to cancel the request.
-func (c *EntryCertificateService) DeleteWithContext(ctx context.Context, entryId string) error {
-	reqUrl, err := url.JoinPath(c.client.baseUri, entryEndpoint, entryId)
-	if err != nil {
-		return fmt.Errorf("failed to delete entry url: %w", err)
-	}
-
-	resp, err := c.client.RequestWithContext(ctx, reqUrl, http.MethodDelete, nil)
-	if err != nil {
-		return fmt.Errorf("error while deleting entry: %w", err)
-	} else if err = resp.CheckRespSaveResult(); err != nil {
-		return err
-	}
-
-	return nil
+func (c *EntryCertificateService) DeleteWithContext(ctx context.Context, vaultId string, entryId string) error {
+	return c.client.deleteEntry(ctx, vaultId, entryId)
 }
 
 // GetDataMode returns the data mode of the EntryCertificate. Can be either EntryCertificateDataModeURL or EntryCertificateDataModeFile.
 func (c EntryCertificate) GetDataMode() EntryCertificateDataMode {
-	return EntryCertificateDataMode(c.data.Mode)
+	return c.mode
 }

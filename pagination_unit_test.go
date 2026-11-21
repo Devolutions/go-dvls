@@ -1,50 +1,75 @@
 package dvls
 
 import (
+	"context"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestFetchAllPages_StopsAtTotalPage covers termination on the totalPage bound when
-// totalCount alone would not stop the loop.
-func TestFetchAllPages_StopsAtTotalPage(t *testing.T) {
-	var pagesRequested []int
+func TestListAll_Pagination(t *testing.T) {
+	var pages []string
 
-	err := fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
-		pagesRequested = append(pagesRequested, pageNumber)
-		return pagedResponse{TotalPage: 3, TotalCount: 10}, 2, nil
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/user-group", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "500", r.URL.Query().Get("pageSize"))
+		pages = append(pages, r.URL.Query().Get("pageNumber"))
+
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Query().Get("pageNumber") {
+		case "1":
+			w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":3,"totalPage":2,"data":[{"id":"1","name":"a"},{"id":"2","name":"b"}]}`))
+		case "2":
+			w.Write([]byte(`{"currentPage":2,"pageSize":500,"totalCount":3,"totalPage":2,"data":[{"id":"3","name":"c"}]}`))
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+			w.Write([]byte(`{"errors":[{"field":"pageNumber","message":"pageNumber is past the last page."}]}`))
+		}
 	})
 
+	client := newTestClient(t, mux)
+
+	groups, err := listAll[UserGroup](context.Background(), client, nil, userGroupEndpoint)
 	require.NoError(t, err)
-	assert.Equal(t, []int{1, 2, 3}, pagesRequested)
+	assert.Len(t, groups, 3)
+	assert.Equal(t, []string{"1", "2"}, pages)
 }
 
-// TestFetchAllPages_StopsAtTotalCount covers a server that reports totalPage > 1 but
-// whose totalCount is already satisfied by the first page: the driver must stop
-// without requesting further pages.
-func TestFetchAllPages_StopsAtTotalCount(t *testing.T) {
+func TestListAll_Empty(t *testing.T) {
 	calls := 0
 
-	err := fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/user-group", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
 		calls++
-		return pagedResponse{CurrentPage: pageNumber, TotalPage: 3, TotalCount: 2}, 2, nil
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":0,"totalPage":0,"data":[]}`))
 	})
 
+	client := newTestClient(t, mux)
+
+	groups, err := listAll[UserGroup](context.Background(), client, nil, userGroupEndpoint)
 	require.NoError(t, err)
+	assert.Empty(t, groups)
 	assert.Equal(t, 1, calls)
 }
 
-// TestFetchAllPages_EmptyFirstPage covers an empty result set: one request, no error.
-func TestFetchAllPages_EmptyFirstPage(t *testing.T) {
-	calls := 0
-
-	err := fetchAllPages(func(pageNumber int) (pagedResponse, int, error) {
-		calls++
-		return pagedResponse{}, 0, nil
+func TestListAll_PageError(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v2/user-group", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusForbidden)
+		w.Write([]byte(`{"message":"Access denied."}`))
 	})
 
-	require.NoError(t, err)
-	assert.Equal(t, 1, calls)
+	client := newTestClient(t, mux)
+
+	_, err := listAll[UserGroup](context.Background(), client, nil, userGroupEndpoint)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "page 1")
+	assert.ErrorContains(t, err, "Access denied.")
 }

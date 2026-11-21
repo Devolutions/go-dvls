@@ -1,7 +1,7 @@
 package dvls
 
 import (
-	"fmt"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -9,86 +9,103 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestFolderGetEntries(t *testing.T) {
+func TestFolderGetEntries_TypeFilter(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/api/v1/vault/%s/entry", testVaultID), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodGet, r.Method)
+		assert.Equal(t, "Folder", r.URL.Query().Get("type"))
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{
-			"result": 1,
-			"data": [
-				{"id":"1","name":"Folder1","type":"Folder","subType":"Folder","path":"test","data":{"domain":"d1"}},
-				{"id":"2","name":"Cred1","type":"Credential","subType":"Default","path":"test","data":{"username":"u1"}},
-				{"id":"3","name":"Folder2","type":"Folder","subType":"Database","path":"test","data":{"domain":"d2"}}
-			],
-			"currentPage": 1,
-			"totalPage": 1,
-			"totalCount": 3,
-			"pageSize": 20
-		}`))
+		w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":1,"totalPage":1,"data":[{"id":"1","name":"F","path":"F","type":"Folder","subType":"Server","data":{"domain":"d","username":"u","credentialMode":"Custom"}}]}`))
 	})
 
 	client := newTestClient(t, mux)
 
-	entries, err := client.Entries.Folder.GetEntries(testVaultID, GetEntriesOptions{})
+	folders, err := client.Entries.Folder.GetEntries(testVaultID, GetEntriesOptions{})
 	require.NoError(t, err)
-	require.Len(t, entries, 2)
-	assert.Equal(t, "Folder1", entries[0].Name)
-	assert.Equal(t, "Folder2", entries[1].Name)
+	require.Len(t, folders, 1)
+	data, ok := folders[0].GetFolderData()
+	require.True(t, ok)
+	assert.Equal(t, EntryFolderData{Domain: "d", Username: "u"}, *data)
 }
 
 func TestFolderGetByName(t *testing.T) {
-	entryID := "folder-found"
-	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/api/v1/vault/%s/entry", testVaultID), func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{
-			"result": 1,
-			"data": [
-				{"id":"folder-found","name":"Target","type":"Folder","subType":"Folder","path":"test","data":{"domain":"d"}}
-			],
-			"currentPage": 1,
-			"totalPage": 1,
-			"totalCount": 1,
-			"pageSize": 20
-		}`))
-	})
-	mux.HandleFunc(fmt.Sprintf("/api/v1/vault/%s/entry/%s", testVaultID, entryID), func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{
-			"result": 1,
-			"id": "folder-found",
-			"name": "Target",
-			"type": "Folder",
-			"subType": "Folder",
-			"path": "test",
-			"data": {"domain": "d", "username": "u"}
-		}`))
-	})
+	tests := []struct {
+		name      string
+		data      string
+		wantError error
+	}{
+		{name: "Found", data: `{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`},
+		{name: "NotFound", data: "", wantError: ErrEntryNotFound},
+		{name: "Multiple", data: `{"id":"1","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}},{"id":"2","name":"F","path":"A\\F\\F","type":"Folder","subType":"Folder","data":{}}`, wantError: ErrMultipleEntriesFound},
+	}
 
-	client := newTestClient(t, mux)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := http.NewServeMux()
+			mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				assert.Equal(t, "F", r.URL.Query().Get("name"))
+				assert.Equal(t, "A\\F", r.URL.Query().Get("path"))
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"currentPage":1,"pageSize":500,"totalCount":2,"totalPage":1,"data":[` + tt.data + `]}`))
+			})
+			mux.HandleFunc(testEntryPath, func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, http.MethodGet, r.Method)
+				w.Header().Set("Content-Type", "application/json")
+				w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`))
+			})
 
-	entry, err := client.Entries.Folder.GetByName(testVaultID, "Target", GetByNameOptions{})
-	require.NoError(t, err)
-	assert.Equal(t, "folder-found", entry.Id)
-	assert.Equal(t, "Target", entry.Name)
+			client := newTestClient(t, mux)
+
+			path := "A\\F"
+			folder, err := client.Entries.Folder.GetByName(testVaultID, "F", GetByNameOptions{Path: &path})
+			if tt.wantError != nil {
+				assert.ErrorIs(t, err, tt.wantError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, testEntryID, folder.Id)
+		})
+	}
 }
 
-func TestFolderGetByName_NotFound(t *testing.T) {
+func TestFolderNewAndUpdate(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc(fmt.Sprintf("/api/v1/vault/%s/entry", testVaultID), func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(testVaultEntriesPath, func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		assert.Equal(t, map[string]any{"name": "F", "path": "A", "type": "Folder", "subType": "Folder", "data": map[string]any{}}, body, "a nil Data is sent as an empty object")
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{
-			"result": 1,
-			"data": [],
-			"currentPage": 1,
-			"totalPage": 1,
-			"totalCount": 0,
-			"pageSize": 20
-		}`))
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"id":"` + testEntryID + `"}`))
+	})
+	mux.HandleFunc(testEntryPath, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch r.Method {
+		case http.MethodPut:
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			assert.Equal(t, "A\\F", body["path"])
+			assert.Equal(t, map[string]any{"domain": "", "username": ""}, body["data"])
+			w.Write([]byte(`{}`))
+		case http.MethodGet:
+			w.Write([]byte(`{"id":"` + testEntryID + `","name":"F","path":"A\\F","type":"Folder","subType":"Folder","data":{}}`))
+		case http.MethodDelete:
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Errorf("unexpected method %s", r.Method)
+		}
 	})
 
 	client := newTestClient(t, mux)
 
-	_, err := client.Entries.Folder.GetByName(testVaultID, "NonExistent", GetByNameOptions{})
-	assert.ErrorIs(t, err, ErrEntryNotFound)
+	id, err := client.Entries.Folder.New(Entry{VaultId: testVaultID, Name: "F", Path: "A", Type: EntryFolderType, SubType: EntryFolderSubTypeFolder})
+	require.NoError(t, err)
+
+	folder, err := client.Entries.Folder.Update(Entry{Id: id, VaultId: testVaultID, Name: "F", Path: "A\\F", Type: EntryFolderType, SubType: EntryFolderSubTypeFolder, Data: &EntryFolderData{}})
+	require.NoError(t, err)
+	assert.Equal(t, "A\\F", folder.Path)
+
+	require.NoError(t, client.Entries.Folder.DeleteById(testVaultID, id))
 }

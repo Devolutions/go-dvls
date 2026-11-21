@@ -16,12 +16,13 @@ const (
 
 const testEntryID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
 
+const (
+	testVaultEntriesPath = "/api/v2/vault/" + testVaultID + "/entry"
+	testEntryPath        = testVaultEntriesPath + "/" + testEntryID
+)
+
 func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 	t.Helper()
-
-	mux.HandleFunc("/api/is-logged", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("true"))
-	})
 
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
@@ -29,7 +30,7 @@ func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 	client := &Client{
 		baseUri:    server.URL,
 		client:     server.Client(),
-		credential: credentials{token: "test-token"},
+		credential: &credentials{appKey: "test-key", appSecret: "test-secret", token: "test-token"},
 	}
 	client.initServices()
 
