@@ -29,7 +29,7 @@ func newTestClient(t *testing.T, mux *http.ServeMux) *Client {
 	client := &Client{
 		baseUri:    server.URL,
 		client:     server.Client(),
-		credential: credentials{token: "test-token"},
+		credential: &credentials{token: "test-token"},
 	}
 	client.initServices()
 

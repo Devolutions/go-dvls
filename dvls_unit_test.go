@@ -2,8 +2,10 @@ package dvls
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -139,12 +141,65 @@ func TestRequest_ReloginAfterTokenExpiry(t *testing.T) {
 	client := &Client{
 		baseUri:    server.URL,
 		client:     server.Client(),
-		credential: credentials{appKey: "test-key", appSecret: "test-secret", token: "expired-token"},
+		credential: &credentials{appKey: "test-key", appSecret: "test-secret", token: "expired-token"},
 	}
 
 	_, err := client.Request(server.URL+"/api/v1/vault", http.MethodGet, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "new-token", client.credential.token)
+}
+
+func TestNewClient_ServicesShareTheClientSession(t *testing.T) {
+	var mu sync.Mutex
+	logins := 0
+	valid := map[string]bool{}
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		logins++
+		token := fmt.Sprintf("token-%d", logins)
+		valid[token] = true
+		w.Write([]byte(`{"tokenId":"` + token + `"}`))
+	})
+	mux.HandleFunc("/api/is-logged", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if valid[r.Header.Get("tokenId")] {
+			w.Write([]byte("true"))
+			return
+		}
+		w.Write([]byte("false"))
+	})
+	mux.HandleFunc("/api/public-instance-information", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"result":1,"data":{}}`))
+	})
+	mux.HandleFunc("/api/v1/vault/vault-id", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		assert.True(t, valid[r.Header.Get("tokenId")], "the vault request must carry the renewed token")
+		w.Write([]byte(`{"id":"vault-id"}`))
+	})
+
+	server := httptest.NewServer(mux)
+	t.Cleanup(server.Close)
+
+	client, err := NewClient("test-key", "test-secret", server.URL)
+	require.NoError(t, err)
+
+	mu.Lock()
+	valid = map[string]bool{}
+	mu.Unlock()
+
+	_, err = client.GetPublicServerInfo()
+	require.NoError(t, err)
+	_, err = client.Vaults.Get("vault-id")
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, 2, logins, "a session renewed through the client must be the one its services use")
 }
 
 func TestNewClientWithApiKey(t *testing.T) {
@@ -220,7 +275,7 @@ func TestIsLogged_False(t *testing.T) {
 	client := &Client{
 		baseUri:    server.URL,
 		client:     server.Client(),
-		credential: credentials{token: "test-token"},
+		credential: &credentials{token: "test-token"},
 	}
 
 	logged, err := client.isLogged()

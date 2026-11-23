@@ -43,7 +43,7 @@ func test_isLogged(t *testing.T) {
 	}
 
 	invalidClient := testClient
-	invalidClient.credential.token = "placeholder"
+	invalidClient.credential = &credentials{token: "placeholder"}
 	islogged, err = invalidClient.isLogged()
 	if err != nil {
 		t.Fatal(err)

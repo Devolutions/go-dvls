@@ -23,7 +23,7 @@ func TestContextCancellation(t *testing.T) {
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -59,7 +59,7 @@ func TestContextSucceedsWithoutCancellation(t *testing.T) {
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -84,7 +84,7 @@ func TestContextTimeout(t *testing.T) {
 	client := &Client{
 		baseUri: server.URL,
 		client:  server.Client(),
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
@@ -122,7 +122,7 @@ func TestContextPropagation(t *testing.T) {
 	client := &Client{
 		baseUri: server.URL,
 		client:  &http.Client{Transport: customTransport},
-		credential: credentials{
+		credential: &credentials{
 			token: "test-token",
 		},
 	}
