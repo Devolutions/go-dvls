@@ -14,7 +14,7 @@ import (
 type Client struct {
 	client     *http.Client
 	baseUri    string
-	credential credentials
+	credential *credentials // a pointer, so copies of a Client and their services share one session
 
 	common service
 
@@ -64,7 +64,7 @@ func NewClient(appKey string, appSecret string, baseUri string) (Client, error) 
 // The provided context applies to the initial login request only and can be used to cancel it
 // or to give it a deadline. It is not retained by the returned Client.
 func NewClientWithContext(ctx context.Context, appKey string, appSecret string, baseUri string) (Client, error) {
-	credential := credentials{appKey: appKey, appSecret: appSecret}
+	credential := &credentials{appKey: appKey, appSecret: appSecret}
 	client := Client{
 		client:     &http.Client{},
 		baseUri:    baseUri,
@@ -86,7 +86,7 @@ func NewClientWithContext(ctx context.Context, appKey string, appSecret string, 
 // login exchange or token refresh is performed. baseUri should be the full URI to your DVLS
 // instance (ex.: https://dvls.your-dvls-instance.com)
 func NewClientWithApiKey(apiKey string, baseUri string) (Client, error) {
-	credential := credentials{apiKey: apiKey}
+	credential := &credentials{apiKey: apiKey}
 	client := Client{
 		client:     &http.Client{},
 		baseUri:    baseUri,
