@@ -5,6 +5,7 @@ on:
     branches: [master]
   push:
     branches: [master]
+    paths-ignore: ['.github/**']
   workflow_dispatch:
 
 concurrency:
