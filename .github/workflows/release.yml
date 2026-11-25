@@ -11,13 +11,15 @@ on:
 jobs:
   create-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check out Devolutions/actions
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Devolutions/actions
           ref: v1
@@ -26,7 +28,7 @@ jobs:
 
       - name: Set version
         id: get-version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Create release
         uses: ./.github/workflows/create-release
