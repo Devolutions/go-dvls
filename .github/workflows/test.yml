@@ -14,14 +14,17 @@ concurrency:
 jobs:
   unit-tests:
     if: ${{ github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check out Devolutions/actions
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Devolutions/actions
           ref: v1
@@ -30,7 +33,7 @@ jobs:
 
       - name: Get current version
         id: get-version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Does tag exists?
         uses: ./.github/workflows/tag-check
@@ -49,14 +52,16 @@ jobs:
   integration-tests:
     environment: test-application
     if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Check out ${{ github.repository }}
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
 
       - name: Check out Devolutions/actions
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           repository: Devolutions/actions
           ref: v1
@@ -65,7 +70,7 @@ jobs:
 
       - name: Get current version
         id: get-version
-        run: echo "version=$(cat VERSION)" >> $GITHUB_OUTPUT
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
 
       - name: Does tag exists?
         uses: ./.github/workflows/tag-check
@@ -97,13 +102,13 @@ jobs:
           sudo update-ca-certificates
 
       - name: Run integration tests
+        run: go test -tags integration -v ./...
         env:
           TEST_USER: ${{ secrets.TEST_USER }}
           TEST_PASSWORD: ${{ secrets.TEST_PASSWORD }}
           TEST_INSTANCE: ${{ secrets.TEST_INSTANCE }}
           TEST_VAULT_ID: ${{ secrets.TEST_VAULT_ID }}
           TEST_CERTIFICATE_ENTRY_ID: ${{ secrets.TEST_CERTIFICATE_ENTRY_ID }}
-          TEST_CERTIFICATE_FILE_PATH: '${{ runner.temp }}/test.p12'
+          TEST_CERTIFICATE_FILE_PATH: ${{ runner.temp }}/test.p12
           TEST_HOST_ENTRY_ID: ${{ secrets.TEST_HOST_ENTRY_ID }}
           TEST_WEBSITE_ENTRY_ID: ${{ secrets.TEST_WEBSITE_ENTRY_ID }}
-        run: go test -tags integration -v ./...
