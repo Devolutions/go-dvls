@@ -1,0 +1,5 @@
+paths:
+  "**/.github/workflows/test.yml":
+    ignore:
+      # A workflow-only change merged to master must still run the push-only integration tests.
+      - 'push trigger does not exclude \.github'
