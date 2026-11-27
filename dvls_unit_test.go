@@ -1,11 +1,14 @@
 package dvls
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -117,36 +120,179 @@ func TestNewClientWithContext_LoginDeadlineExceeded(t *testing.T) {
 	assert.Equal(t, Client{}, client)
 }
 
-func TestRequest_ReloginAfterTokenExpiry(t *testing.T) {
-	mux := http.NewServeMux()
+type sessionMock struct {
+	logins        atomic.Int32
+	isLoggedCalls atomic.Int32
+	vaultCalls    atomic.Int32
+	isLoggedBody  string
+	validToken    string
+}
+
+func (m *sessionMock) vault(w http.ResponseWriter, r *http.Request) {
+	m.vaultCalls.Add(1)
+	if m.validToken == "" || r.Header.Get("tokenId") != m.validToken {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Write([]byte(`{"result":1}`))
+}
+
+func newSessionTestClient(t *testing.T, mux *http.ServeMux, mock *sessionMock) *Client {
+	t.Helper()
+
 	mux.HandleFunc("/api/v1/login", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
 		assert.Empty(t, r.Header.Get("tokenId"), "login must not send the expired token")
+		mock.logins.Add(1)
+		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"tokenId":"new-token"}`))
 	})
 	mux.HandleFunc("/api/is-logged", func(w http.ResponseWriter, r *http.Request) {
-		if r.Header.Get("tokenId") == "new-token" {
-			w.Write([]byte("true"))
-			return
-		}
-		w.Write([]byte("false"))
-	})
-	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "new-token", r.Header.Get("tokenId"))
-		w.Write([]byte(`{"result":1}`))
+		assert.Equal(t, http.MethodGet, r.Method)
+		mock.isLoggedCalls.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(mock.isLoggedBody))
 	})
 
 	server := httptest.NewServer(mux)
-	defer server.Close()
+	t.Cleanup(server.Close)
 
-	client := &Client{
+	return &Client{
 		baseUri:    server.URL,
 		client:     server.Client(),
-		credential: &credentials{appKey: "test-key", appSecret: "test-secret", token: "expired-token"},
+		credential: &credentials{appKey: "test-key", appSecret: "test-secret", token: "test-token"},
 	}
+}
 
-	_, err := client.Request(server.URL+"/api/v1/vault", http.MethodGet, nil)
+func TestRequest_NoSessionCheckOnSuccess(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "true", validToken: "test-token"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, mock.vaultCalls.Load())
+	assert.Zero(t, mock.isLoggedCalls.Load(), "a successful request must not call the is-logged endpoint")
+	assert.Zero(t, mock.logins.Load())
+}
+
+func TestRequest_ReloginAfterTokenExpiry(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "false", validToken: "new-token"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
 	require.NoError(t, err)
 	assert.Equal(t, "new-token", client.credential.token)
+	assert.EqualValues(t, 2, mock.vaultCalls.Load())
+	assert.EqualValues(t, 1, mock.logins.Load())
+}
+
+func TestRequest_RetryResendsBody(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "false", validToken: "new-token"}
+	var mu sync.Mutex
+	var bodies []string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, http.MethodPost, r.Method)
+		body, err := io.ReadAll(r.Body)
+		assert.NoError(t, err)
+		mu.Lock()
+		bodies = append(bodies, string(body))
+		mu.Unlock()
+		mock.vault(w, r)
+	})
+	client := newSessionTestClient(t, mux, mock)
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodPost, bytes.NewBufferString(`{"name":"vault"}`))
+	require.NoError(t, err)
+
+	mu.Lock()
+	defer mu.Unlock()
+	assert.Equal(t, []string{`{"name":"vault"}`, `{"name":"vault"}`}, bodies)
+}
+
+func TestRequest_ClosesBody(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "true", validToken: "test-token"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+
+	body, writer := io.Pipe()
+	go func() {
+		writer.Write([]byte(`{"name":"vault"}`))
+		writer.Close()
+	}()
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodPost, body)
+	require.NoError(t, err)
+
+	_, err = body.Read(make([]byte, 1))
+	assert.ErrorIs(t, err, io.ErrClosedPipe, "the request body must be closed once it is buffered")
+}
+
+func TestRequest_OtherStatusNotRetried(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "false"}
+	var calls atomic.Int32
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	client := newSessionTestClient(t, mux, mock)
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
+	require.Error(t, err)
+	assert.EqualValues(t, 1, calls.Load(), "only a 401 may trigger a retry")
+	assert.Zero(t, mock.isLoggedCalls.Load())
+	assert.Zero(t, mock.logins.Load())
+}
+
+func TestRequest_UnauthorizedWithValidSession(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "true"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
+	assert.True(t, hasStatusCode(err, http.StatusUnauthorized), "expected a 401, got %v", err)
+	assert.EqualValues(t, 1, mock.vaultCalls.Load(), "a 401 on a valid session must not be retried")
+	assert.EqualValues(t, 1, mock.isLoggedCalls.Load())
+	assert.Zero(t, mock.logins.Load(), "a 401 on a valid session must not trigger a login")
+}
+
+func TestRequest_ConcurrentUnauthorizedSingleLogin(t *testing.T) {
+	const requests = 8
+
+	mock := &sessionMock{isLoggedBody: "false", validToken: "new-token"}
+	var arrived sync.WaitGroup
+	arrived.Add(requests)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("tokenId") != mock.validToken {
+			arrived.Done()
+			arrived.Wait()
+		}
+		mock.vault(w, r)
+	})
+	client := newSessionTestClient(t, mux, mock)
+
+	errs := make(chan error, requests)
+	for range requests {
+		go func() {
+			_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
+			errs <- err
+		}()
+	}
+	for range requests {
+		assert.NoError(t, <-errs)
+	}
+
+	assert.EqualValues(t, 1, mock.logins.Load(), "concurrent 401s must share one login")
+	assert.EqualValues(t, 1, mock.isLoggedCalls.Load())
 }
 
 func TestNewClient_ServicesShareTheClientSession(t *testing.T) {
@@ -172,13 +318,22 @@ func TestNewClient_ServicesShareTheClientSession(t *testing.T) {
 		}
 		w.Write([]byte("false"))
 	})
-	mux.HandleFunc("/api/public-instance-information", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/private-instance-information", func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		if !valid[r.Header.Get("tokenId")] {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Write([]byte(`{"result":1,"data":{}}`))
 	})
 	mux.HandleFunc("/api/v1/vault/vault-id", func(w http.ResponseWriter, r *http.Request) {
 		mu.Lock()
 		defer mu.Unlock()
-		assert.True(t, valid[r.Header.Get("tokenId")], "the vault request must carry the renewed token")
+		if !valid[r.Header.Get("tokenId")] {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 		w.Write([]byte(`{"id":"vault-id"}`))
 	})
 
@@ -192,7 +347,7 @@ func TestNewClient_ServicesShareTheClientSession(t *testing.T) {
 	valid = map[string]bool{}
 	mu.Unlock()
 
-	_, err = client.GetPublicServerInfo()
+	_, err = client.GetPrivateServerInfo()
 	require.NoError(t, err)
 	_, err = client.Vaults.Get("vault-id")
 	require.NoError(t, err)
@@ -253,6 +408,20 @@ func TestRequestWithApiKey_BearerHeader(t *testing.T) {
 	assert.Empty(t, gotTokenId)
 	assert.False(t, loginCalled, "API key client must not call the login endpoint")
 	assert.False(t, isLoggedCalled, "API key client must not call the is-logged endpoint")
+}
+
+func TestRequestWithApiKey_UnauthorizedNotRetried(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "false"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+	client.credential = &credentials{apiKey: "test-api-key"}
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodGet, nil)
+	assert.True(t, hasStatusCode(err, http.StatusUnauthorized), "expected a 401, got %v", err)
+	assert.EqualValues(t, 1, mock.vaultCalls.Load(), "API key client must not retry a 401")
+	assert.Zero(t, mock.isLoggedCalls.Load(), "API key client must not call the is-logged endpoint")
+	assert.Zero(t, mock.logins.Load(), "API key client must not call the login endpoint")
 }
 
 func TestIsLogged_True(t *testing.T) {

@@ -1,6 +1,7 @@
 package dvls
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -41,12 +42,13 @@ func (e RequestError) Error() string {
 
 // IsNotFound reports whether the error is a DVLS RequestError with an HTTP 404 status code.
 func IsNotFound(err error) bool {
-	var reqErr *RequestError
-	if errors.As(err, &reqErr) {
-		return reqErr.StatusCode == http.StatusNotFound
-	}
+	return hasStatusCode(err, http.StatusNotFound)
+}
 
-	return false
+func hasStatusCode(err error, statusCode int) bool {
+	var reqErr *RequestError
+
+	return errors.As(err, &reqErr) && reqErr.StatusCode == statusCode
 }
 
 // Request returns a Response that contains the HTTP response body in bytes, the result code and result message.
@@ -58,29 +60,62 @@ func (c *Client) Request(url string, reqMethod string, reqBody io.Reader, option
 // RequestWithContext returns a Response that contains the HTTP response body in bytes, the result code and result message.
 // The provided context can be used to cancel the request.
 func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
-	if !c.credential.useApiKey() {
-		islogged, err := c.isLoggedWithContext(ctx)
+	retryable := !c.credential.useApiKey()
+
+	newBody := func() io.Reader { return reqBody }
+	if retryable && reqBody != nil {
+		body, err := readBody(ctx, reqBody)
 		if err != nil {
-			return Response{}, &RequestError{Err: fmt.Errorf("failed to fetch login status: %w", err), Url: url}
+			return Response{}, &RequestError{Err: fmt.Errorf("failed to read request body: %w", err), Url: url}
 		}
-		if !islogged {
-			err := c.loginWithContext(ctx)
-			if err != nil {
-				return Response{}, &RequestError{Err: fmt.Errorf("failed to refresh login token: %w", err), Url: url}
-			}
-		}
+		newBody = func() io.Reader { return bytes.NewReader(body) }
 	}
 
-	var opts RequestOptions
-	if len(options) > 0 {
-		opts = options[0]
+	token := c.credential.currentToken()
+	resp, err := c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, token, newBody(), options...)
+	if err == nil {
+		return resp, nil
+	}
+	if !retryable || !hasStatusCode(err, http.StatusUnauthorized) {
+		return Response{}, err
 	}
 
-	resp, err := c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, c.credential.token, reqBody, opts)
+	renewed, renewErr := c.renewSession(ctx, token)
+	if renewErr != nil {
+		return Response{}, &RequestError{Err: renewErr, Url: url}
+	}
+	if !renewed {
+		return Response{}, err
+	}
+
+	resp, err = c.rawRequestWithContext(ctx, url, reqMethod, defaultContentType, c.credential.currentToken(), newBody(), options...)
 	if err != nil {
 		return Response{}, err
 	}
+
 	return resp, nil
+}
+
+func readBody(ctx context.Context, body io.Reader) ([]byte, error) {
+	if closer, ok := body.(io.Closer); ok {
+		stop := context.AfterFunc(ctx, func() { closer.Close() })
+		defer func() {
+			if stop() {
+				closer.Close()
+			}
+		}()
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(body)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+
+	return data, err
 }
 
 func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMethod string, contentType string, token string, reqBody io.Reader, options ...RequestOptions) (Response, error) {

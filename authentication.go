@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 )
 
 // Client represents the DVLS client used to communicate with the API.
@@ -35,10 +36,18 @@ type credentials struct {
 	appSecret string
 	apiKey    string
 	token     string
+	mu        sync.Mutex
 }
 
-func (c credentials) useApiKey() bool {
+func (c *credentials) useApiKey() bool {
 	return c.apiKey != ""
+}
+
+func (c *credentials) currentToken() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	return c.token
 }
 
 type loginResponse struct {
@@ -71,10 +80,11 @@ func NewClientWithContext(ctx context.Context, appKey string, appSecret string, 
 		credential: credential,
 	}
 
-	err := client.loginWithContext(ctx)
+	token, err := client.loginWithContext(ctx)
 	if err != nil {
 		return Client{}, fmt.Errorf("login failed \"%w\"", err)
 	}
+	credential.token = token
 
 	client.initServices()
 
@@ -116,7 +126,7 @@ func (c *Client) initServices() {
 	c.UserGroups = (*UserGroups)(&c.common)
 }
 
-func (c *Client) loginWithContext(ctx context.Context) error {
+func (c *Client) loginWithContext(ctx context.Context) (string, error) {
 	form := url.Values{}
 	form.Set("AppKey", c.credential.appKey)
 	form.Set("AppSecret", c.credential.appSecret)
@@ -124,36 +134,59 @@ func (c *Client) loginWithContext(ctx context.Context) error {
 
 	reqUrl, err := url.JoinPath(c.baseUri, loginEndpoint)
 	if err != nil {
-		return fmt.Errorf("failed to build login url: %w", err)
+		return "", fmt.Errorf("failed to build login url: %w", err)
 	}
 
 	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodPost, loginContentType, "", bytes.NewBufferString(loginBody))
 	if err != nil {
-		return fmt.Errorf("error while submitting login request: %w", err)
+		return "", fmt.Errorf("error while submitting login request: %w", err)
 	}
 
 	var loginResponse loginResponse
 	err = json.Unmarshal(resp.Response, &loginResponse)
 	if err != nil {
-		return fmt.Errorf("failed to unmarshal response body: %w", err)
+		return "", fmt.Errorf("failed to unmarshal response body: %w", err)
 	}
 
-	c.credential.token = loginResponse.TokenId
+	return loginResponse.TokenId, nil
+}
 
-	return nil
+func (c *Client) renewSession(ctx context.Context, staleToken string) (bool, error) {
+	c.credential.mu.Lock()
+	defer c.credential.mu.Unlock()
+
+	if c.credential.token != staleToken {
+		return true, nil
+	}
+
+	islogged, err := c.isLoggedWithContext(ctx, staleToken)
+	if err != nil {
+		return false, fmt.Errorf("failed to fetch login status: %w", err)
+	}
+	if islogged {
+		return false, nil
+	}
+
+	token, err := c.loginWithContext(ctx)
+	if err != nil {
+		return false, fmt.Errorf("failed to refresh login token: %w", err)
+	}
+	c.credential.token = token
+
+	return true, nil
 }
 
 func (c *Client) isLogged() (bool, error) {
-	return c.isLoggedWithContext(context.Background())
+	return c.isLoggedWithContext(context.Background(), c.credential.currentToken())
 }
 
-func (c *Client) isLoggedWithContext(ctx context.Context) (bool, error) {
+func (c *Client) isLoggedWithContext(ctx context.Context, token string) (bool, error) {
 	reqUrl, err := url.JoinPath(c.baseUri, isLoggedEndpoint)
 	if err != nil {
 		return false, fmt.Errorf("failed to build isLogged url: %w", err)
 	}
 
-	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodGet, defaultContentType, c.credential.token, nil)
+	resp, err := c.rawRequestWithContext(ctx, reqUrl, http.MethodGet, defaultContentType, token, nil)
 	if err != nil && !strings.Contains(err.Error(), "json: cannot unmarshal bool into Go value") {
 		return false, fmt.Errorf("error while submitting isLogged request: %w", err)
 	}
