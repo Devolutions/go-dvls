@@ -215,6 +215,25 @@ func TestRequest_RetryResendsBody(t *testing.T) {
 	assert.Equal(t, []string{`{"name":"vault"}`, `{"name":"vault"}`}, bodies)
 }
 
+func TestRequest_ClosesBody(t *testing.T) {
+	mock := &sessionMock{isLoggedBody: "true", validToken: "test-token"}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/vault", mock.vault)
+	client := newSessionTestClient(t, mux, mock)
+
+	body, writer := io.Pipe()
+	go func() {
+		writer.Write([]byte(`{"name":"vault"}`))
+		writer.Close()
+	}()
+
+	_, err := client.Request(client.baseUri+"/api/v1/vault", http.MethodPost, body)
+	require.NoError(t, err)
+
+	_, err = body.Read(make([]byte, 1))
+	assert.ErrorIs(t, err, io.ErrClosedPipe, "the request body must be closed once it is buffered")
+}
+
 func TestRequest_OtherStatusNotRetried(t *testing.T) {
 	mock := &sessionMock{isLoggedBody: "false"}
 	var calls atomic.Int32

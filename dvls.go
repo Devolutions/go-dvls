@@ -64,7 +64,7 @@ func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod s
 
 	newBody := func() io.Reader { return reqBody }
 	if retryable && reqBody != nil {
-		body, err := io.ReadAll(reqBody)
+		body, err := readBody(ctx, reqBody)
 		if err != nil {
 			return Response{}, &RequestError{Err: fmt.Errorf("failed to read request body: %w", err), Url: url}
 		}
@@ -94,6 +94,28 @@ func (c *Client) RequestWithContext(ctx context.Context, url string, reqMethod s
 	}
 
 	return resp, nil
+}
+
+func readBody(ctx context.Context, body io.Reader) ([]byte, error) {
+	if closer, ok := body.(io.Closer); ok {
+		stop := context.AfterFunc(ctx, func() { closer.Close() })
+		defer func() {
+			if stop() {
+				closer.Close()
+			}
+		}()
+	}
+
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+
+	data, err := io.ReadAll(body)
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return nil, ctxErr
+	}
+
+	return data, err
 }
 
 func (c *Client) rawRequestWithContext(ctx context.Context, url string, reqMethod string, contentType string, token string, reqBody io.Reader, options ...RequestOptions) (Response, error) {
